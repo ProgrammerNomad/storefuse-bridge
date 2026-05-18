@@ -37,6 +37,7 @@ storefuse-bridge/
 │   ├── class-session.php             ← WC session lifecycle + guest cart merge after login
 │   ├── class-format.php              ← price(), image(), product(), category(), date() formatters
 │   ├── class-errors.php              ← Static error factory (product_not_found, coupon_invalid, etc.)
+│   ├── class-request-context.php     ← Per-request resolved context (user, session, currency, language, device)
 │   ├── class-wc-compat.php           ← WooCommerce version detection (HPOS, Store API, etc.)
 │   │
 │   └── modules/
@@ -310,7 +311,61 @@ Mobile apps cannot use browser cookies for cart session. The `X-StoreFuse-Cart-T
 
 ---
 
-`StoreFuse_Bridge_Format` (`class-format.php`) contains every normalisation function. No module contains its own price formatting or image URL resolution.
+---
+
+## Request Context
+
+`StoreFuse_Bridge_Request_Context` (`class-request-context.php`) is resolved once at the start of each REST request and passed to every module that needs it. Modules never call `is_user_logged_in()`, `WC()->session`, or `get_woocommerce_currency()` directly - they receive a pre-resolved context object.
+
+```php
+class StoreFuse_Bridge_Request_Context {
+
+    public readonly ?\WP_User    $user;
+    public readonly ?\WC_Session $session;
+    public readonly string       $currency;   // ISO 4217, e.g. "INR"
+    public readonly string       $language;   // ISO 639, e.g. "en"
+    public readonly string       $device;     // "mobile" | "desktop" | "unknown"
+    public readonly string       $cart_token;
+
+    public static function from_request( \WP_REST_Request $request ): self {
+        $ctx = new self();
+        $ctx->user       = is_user_logged_in() ? wp_get_current_user() : null;
+        $ctx->session    = WC()->session ?? null;
+        $ctx->currency   = get_woocommerce_currency();
+        $ctx->language   = determine_locale();
+        $ctx->device     = self::detect_device( $request );
+        $ctx->cart_token = WC()->session ? WC()->session->get_customer_id() : '';
+        return $ctx;
+    }
+
+    private static function detect_device( \WP_REST_Request $request ): string {
+        $ua = $request->get_header('User-Agent') ?? '';
+        if ( stripos( $ua, 'Mobile' ) !== false ) return 'mobile';
+        if ( stripos( $ua, 'Tablet' ) !== false ) return 'mobile';
+        return empty( $ua ) ? 'unknown' : 'desktop';
+    }
+}
+```
+
+This becomes the foundation for per-currency pricing, per-language cached responses, and device-specific image resolution in future versions.
+
+---
+
+## Format Helpers
+
+**Two canonical shapes every module uses:**
+
+**Price shape** - all monetary values in all responses:
+```json
+{ "raw": 499.00, "formatted": "Rs. 499.00", "currency": "INR", "symbol": "Rs." }
+```
+
+**Image shape** - all image objects in all responses:
+```json
+{ "url": "https://...", "alt": "Handcrafted Diya Set", "width": 1200, "height": 1200, "srcset": ["url @300w", "url @600w", "url @1200w"] }
+```
+
+Neither shape is ever returned as a raw string. Frontend components can always destructure `price.formatted` without checking whether price is a string or object.
 
 ```php
 class StoreFuse_Bridge_Format {
@@ -318,15 +373,26 @@ class StoreFuse_Bridge_Format {
     public static function price( float $raw ): array {
         return [
             'raw'       => $raw,
-            'formatted' => wc_price( $raw ),
+            'formatted' => strip_tags( wc_price( $raw ) ),
+            'currency'  => get_woocommerce_currency(),
+            'symbol'    => get_woocommerce_currency_symbol(),
         ];
     }
 
-    public static function image( ?int $attachment_id ): ?string {
+    public static function image( ?int $attachment_id ): array {
         if ( ! $attachment_id ) {
-            return wc_placeholder_img_src('woocommerce_single');
+            return [ 'url' => wc_placeholder_img_src(), 'alt' => '', 'width' => null, 'height' => null, 'srcset' => [] ];
         }
-        return wp_get_attachment_image_url( $attachment_id, 'woocommerce_single' ) ?: null;
+        $url        = wp_get_attachment_image_url( $attachment_id, 'full' );
+        $meta       = wp_get_attachment_metadata( $attachment_id );
+        $srcset_raw = wp_get_attachment_image_srcset( $attachment_id, 'full' );
+        return [
+            'url'    => $url ?: null,
+            'alt'    => get_post_meta( $attachment_id, '_wp_attachment_image_alt', true ) ?: '',
+            'width'  => $meta['width'] ?? null,
+            'height' => $meta['height'] ?? null,
+            'srcset' => $srcset_raw ? array_map( 'trim', explode( ',', $srcset_raw ) ) : [],
+        ];
     }
 
     public static function date( string $wp_date ): string {
@@ -415,6 +481,7 @@ class StoreFuse_Bridge_Errors {
             'error'       => [
                 'code'    => $code,
                 'message' => $message,
+                'status'  => $status,
             ],
         ], $status);
     }
@@ -438,6 +505,22 @@ The frontend always receives the same error shape. Error messages can be updated
 - A consistent key prefix (`storefuse_bridge_`)
 - A group invalidation system (clear all `products` cache with one call)
 - Auto-invalidation hooks wired to WooCommerce save events
+
+## Cache Separation: Public vs Session
+
+This distinction is enforced at the infrastructure level. Modules do not set their own headers.
+
+**Public endpoints** (`/products`, `/categories`, `/homepage`, `/search`, `/settings`, `/attributes`, `/tags`, `/utils/countries`):
+- `Cache-Control: public, max-age=N, s-maxage=N`
+- Safe for CDN caching, browser caching, shared proxy caches
+- No user-specific data ever leaks through these
+
+**Session endpoints** (`/cart`, `/account`, `/orders`, `/addresses`, `/wishlist`, `/downloads`, `/auth/*`):
+- `Cache-Control: no-store`
+- Never cached at any layer
+- Mixing these up causes wrong cart data for different users and auth token leaks
+
+The `StoreFuse_Bridge_Response` class sets these headers based on endpoint type. `StoreFuse_Bridge_Module::register_routes()` accepts a `$type` parameter (`public` or `session`) and the infrastructure handles the rest.
 
 ```php
 // Store
@@ -668,6 +751,7 @@ Full settings schema is documented in [api-reference.md](api-reference.md).
 | XSS in admin | All stored strings sanitized on write, escaped on output. |
 | CORS | Configurable allowed origins in plugin settings. Defaults to `*` for development, restrict in production. |
 | Rate limiting | Not built-in (WordPress has no native rate limiter). Delegate to server-level (nginx, Cloudflare). The plugin fires `do_action('storefuse_bridge_rate_limit_hit', $request)` on all cart/checkout write endpoints - security plugins, fail2ban integrations, and analytics can hook this without patching the plugin. |
+| Webhook signature | All outgoing webhooks (ISR revalidation, cache invalidation) include an `X-StoreFuse-Signature` header. Value is `sha256=HMAC_SHA256(secret, body)`. The receiving server must verify this before acting. Secret is set in plugin settings and rotatable without changing endpoints. Without this, any request to the ISR revalidation URL triggers a full cache rebuild. |
 
 ---
 

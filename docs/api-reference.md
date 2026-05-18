@@ -17,35 +17,83 @@ All responses: `Content-Type: application/json`.
 
 Why: the `schema` field lets the frontend detect which version of a response shape it received. When `storefuse/v2` is released, `schema` becomes `storefuse.product.v2` and the frontend knows without checking headers.
 
-**Standard response headers on every request:**
+**Standard response headers:**
+
+Public endpoints (`/products`, `/categories`, `/homepage`, `/search`, etc.):
 ```
 X-StoreFuse-Bridge-Version: 1.0.0
 X-StoreFuse-Cache: HIT | MISS
-Cache-Control: public, max-age=600
-X-StoreFuse-Cart-Token: {session_id}   (cart/auth endpoints only)
+Cache-Control: public, max-age=600, s-maxage=600
 ```
 
-**Data normalisation guarantee** - no WordPress or WooCommerce internal concepts appear in responses. No `post_meta` keys, no taxonomy IDs, no ACF field names. The plugin normalises everything into clean, semantically named fields.
+Session endpoints (`/cart`, `/account`, `/orders`, `/auth/*`):
+```
+X-StoreFuse-Bridge-Version: 1.0.0
+Cache-Control: no-store
+X-StoreFuse-Cart-Token: {session_id}
+```
+
+These headers are set by the infrastructure, not by individual modules. Never mix them - session data cached publicly causes cart leaks and auth failures.
+
+**Canonical data shapes** - two shapes used everywhere in all responses:
+
+Price:
+```json
+{ "raw": 499.00, "formatted": "Rs. 499.00", "currency": "INR", "symbol": "Rs." }
+```
+
+Image:
+```json
+{ "url": "https://...", "alt": "Product name", "width": 1200, "height": 1200, "srcset": ["url @300w", "url @600w", "url @1200w"] }
+```
+
+No endpoint returns a price as a plain string. No endpoint returns an image as a plain URL. These are contracts.
+
+**Error response shape** - every error uses this exact structure:
+```json
+{
+  "schema": "storefuse.error.v1",
+  "api_version": "1.0.0",
+  "error": {
+    "code": "product_not_found",
+    "message": "Product not found.",
+    "status": 404
+  }
+}
+```
+
+The `status` field is included in the body (not only as the HTTP status code) so clients that don't inspect status codes still get the correct error context. All error codes are snake_case strings.
 
 ---
 
 ## API Index
 
 ```
-# Public
+# Health & Config
 GET  /status
 GET  /settings
 GET  /navigation
 GET  /homepage
+
+# Catalogue (public, cached)
 GET  /products
 GET  /products/{slug}
+POST /products/{slug}/notify        back-in-stock alert signup
 GET  /categories
 GET  /categories/{slug}
+GET  /attributes                    attribute list + terms for filter sidebar
+GET  /tags
 GET  /search?q=
+
+# Content (public)
 GET  /reviews?product_id=
 POST /reviews
 GET  /posts
 GET  /posts/{slug}
+
+# Utilities (public)
+GET  /utils/countries
+GET  /utils/pincode/{pincode}       India: pincode -> city/state
 
 # Authentication
 POST /auth/register
@@ -62,7 +110,10 @@ POST /account/change-password
 GET  /orders
 GET  /orders/{id}
 POST /orders/{id}/cancel
+POST /orders/{id}/reorder
+POST /orders/{id}/return-request
 GET  /orders/{id}/tracking
+GET  /orders/{id}/invoice
 GET  /addresses
 PUT  /addresses/billing
 PUT  /addresses/shipping
@@ -85,7 +136,7 @@ GET  /checkout/payment-methods
 GET  /checkout/shipping-methods
 POST /checkout
 POST /checkout/redirect-url
-GET  /orders/{key}     (public, by order key - for Thank You page)
+GET  /orders/{key}                  public, by order key - Thank You page
 ```
 
 ---
@@ -296,6 +347,7 @@ Product list. Storefront-optimised with pagination.
 | `min_price` | number | - | Minimum price filter |
 | `max_price` | number | - | Maximum price filter |
 | `search` | string | - | Text search |
+| `attribute[pa_color]` | string | - | Filter by attribute term slug. Stack multiple: `attribute[pa_size]=large&attribute[pa_color]=red` |
 
 **Response:**
 ```json
@@ -309,17 +361,16 @@ Product list. Storefront-optimised with pagination.
         "slug": "handcrafted-diya-set",
         "name": "Handcrafted Diya Set",
         "short_description": "Set of 6 hand-painted clay diyas.",
-        "price": "₹499",
-        "price_raw": 499,
-        "regular_price": "₹699",
-        "regular_price_raw": 699,
-        "sale_price": "₹499",
+        "price":         { "raw": 499.00, "formatted": "Rs. 499.00", "currency": "INR", "symbol": "Rs." },
+        "regular_price": { "raw": 699.00, "formatted": "Rs. 699.00", "currency": "INR", "symbol": "Rs." },
+        "sale_price":    { "raw": 499.00, "formatted": "Rs. 499.00", "currency": "INR", "symbol": "Rs." },
         "on_sale": true,
+        "sale_ends_at": null,
         "stock_status": "instock",
         "stock_quantity": 24,
         "sku": "DIYA-001",
         "images": [
-          { "id": "1", "src": "https://yourstore.com/wp-content/uploads/diya.jpg", "alt": "Diya Set" }
+          { "url": "https://yourstore.com/wp-content/uploads/diya.jpg", "alt": "Diya Set", "width": 1200, "height": 1200, "srcset": ["...@300w", "...@600w", "...@1200w"] }
         ],
         "categories": [
           { "id": "12", "name": "Festive Decor", "slug": "festive-decor" }
@@ -341,6 +392,8 @@ Product list. Storefront-optimised with pagination.
   }
 }
 ```
+
+Pagination note: `page` + `per_page` for v1. The `pagination` envelope is designed to be extended with `cursor` support without breaking existing consumers.
 
 ### GET /products/{slug}
 
@@ -366,6 +419,7 @@ The `seo` field is populated by the active SEO plugin (Yoast, RankMath, etc.) vi
       "regular_price_raw": 699,
       "sale_price": "₹499",
       "on_sale": true,
+      "sale_ends_at": "2026-05-20T23:59:59Z",
       "stock_status": "instock",
       "stock_quantity": 24,
       "sku": "DIYA-001",
@@ -375,7 +429,20 @@ The `seo` field is populated by the active SEO plugin (Yoast, RankMath, etc.) vi
       "categories": [
         { "id": "12", "name": "Festive Decor", "slug": "festive-decor" }
       ],
-      "attributes": [],
+      "attributes": [
+        { "name": "Size", "slug": "pa_size", "options": ["S", "M", "L", "XL"] }
+      ],
+      "variations": [
+        {
+          "id": "124",
+          "sku": "DIYA-001-L",
+          "attributes": { "pa_size": "L" },
+          "price_raw": 499,
+          "price": "₹499",
+          "stock_status": "instock",
+          "stock_quantity": 8
+        }
+      ],
       "average_rating": "4.80",
       "rating_count": 42,
       "seo": {
@@ -434,6 +501,87 @@ Single category with its first page of products.
   "products": { "...same as GET /products response..." }
 }
 ```
+
+---
+
+## Attributes Module
+
+### GET /attributes
+
+Returns all product attributes and their terms. Used to build the filter sidebar on shop/category pages.  
+**Cache**: 1 hour.
+
+```json
+{
+  "schema": "storefuse.attributes.v1",
+  "api_version": "1.0.0",
+  "data": [
+    {
+      "id": "3",
+      "name": "Size",
+      "slug": "pa_size",
+      "terms": [
+        { "id": "10", "name": "S", "slug": "s", "count": 24 },
+        { "id": "11", "name": "M", "slug": "m", "count": 31 },
+        { "id": "12", "name": "L", "slug": "l", "count": 28 },
+        { "id": "13", "name": "XL", "slug": "xl", "count": 19 }
+      ]
+    },
+    {
+      "id": "4",
+      "name": "Color",
+      "slug": "pa_color",
+      "terms": [
+        { "id": "20", "name": "Red", "slug": "red", "count": 15 },
+        { "id": "21", "name": "Blue", "slug": "blue", "count": 18 }
+      ]
+    }
+  ]
+}
+```
+
+Frontend usage: fetch once on app startup, store in state. Render as checkboxes/swatches. Pass selected terms as `attribute[pa_size]=l&attribute[pa_color]=red` on `GET /products`.
+
+---
+
+## Tags Module
+
+### GET /tags
+
+All product tags. Used for tag filter chips or tag cloud on shop page.  
+**Cache**: 1 hour.
+
+```json
+{
+  "schema": "storefuse.tags.v1",
+  "api_version": "1.0.0",
+  "data": [
+    { "id": "5", "name": "Diwali", "slug": "diwali", "count": 34 },
+    { "id": "6", "name": "New Arrival", "slug": "new-arrival", "count": 12 },
+    { "id": "7", "name": "Bestseller", "slug": "bestseller", "count": 56 }
+  ]
+}
+```
+
+---
+
+## Back-in-Stock
+
+### POST /products/{slug}/notify
+
+Registers a back-in-stock alert for an out-of-stock product. Requires user email. Can be used by guests and logged-in users.
+
+**Body**: `{ "email": "user@example.com" }`
+
+**Response**: `{ "data": { "registered": true } }`
+
+The actual notification email is handled by WooCommerce or a plugin (Back In Stock Notifier, etc.) via the `storefuse_bridge_notify_registered` action hook:
+
+```php
+do_action('storefuse_bridge_notify_registered', $product_id, $email);
+```
+
+If no plugin is listening, the bridge stores the email in a custom table and a background process checks stock on WC `woocommerce_product_set_stock_status` hook.
 
 ---
 
@@ -725,6 +873,10 @@ Full order detail. Returns 403 if the order belongs to a different customer.
       "total": { "raw": 898.00, "formatted": "Rs. 898.00" }
     },
     "payment": { "method": "razorpay", "method_title": "Razorpay", "status": "paid" },
+    "tax_lines": [
+      { "name": "CGST 9%", "rate": "9.00", "amount": { "raw": 44.91, "formatted": "Rs. 44.91" } },
+      { "name": "SGST 9%", "rate": "9.00", "amount": { "raw": 44.91, "formatted": "Rs. 44.91" } }
+    ],
     "tracking": { "available": true, "carrier": "Delhivery", "tracking_number": "DL123456" },
     "billing": { "first_name": "Priya", "last_name": "Sharma", "address_1": "...", "city": "Mumbai", "postcode": "400001", "country": "IN", "phone": "+91..." },
     "shipping": { "first_name": "Priya", "last_name": "Sharma", "address_1": "...", "city": "Mumbai", "postcode": "400001", "country": "IN" }
@@ -735,6 +887,44 @@ Full order detail. Returns 403 if the order belongs to a different customer.
 ### POST /orders/{id}/cancel
 
 Cancels a `pending` or `on-hold` order. Returns 422 if order is not in a cancellable state.
+
+### POST /orders/{id}/reorder
+
+Adds all items from a past order into the current cart. Skips items that are no longer available or out of stock. Returns the updated cart.
+
+**Response**: Same shape as `GET /cart`. Includes a `skipped` array listing product names that could not be added.
+
+```json
+{ "data": { "cart": { "...cart object..." }, "skipped": ["Discontinued Mug"] } }
+```
+
+### POST /orders/{id}/return-request
+
+Submits a return or refund request for a delivered order.
+
+**Body**:
+```json
+{
+  "reason": "Item damaged on arrival",
+  "items": [
+    { "order_item_id": 55, "quantity": 1 }
+  ]
+}
+```
+
+**Response**: `{ "data": { "submitted": true, "request_id": 78 } }`
+
+Fires `storefuse_bridge_return_request` action. Integrate with a returns plugin or process manually from WooCommerce admin.
+
+### GET /orders/{id}/invoice
+
+Returns a URL to the PDF invoice for the order. Requires the user to own the order.
+
+```json
+{ "data": { "available": true, "invoice_url": "https://yourstore.com/wc-api/download-invoice/?order_id=123&key=abc" } }
+```
+
+Returns `{ "data": { "available": false } }` if no PDF plugin (e.g. PDF Invoices & Packing Slips) is active. Frontend should hide the download button in that case.
 
 ### GET /orders/{id}/tracking
 
@@ -891,6 +1081,56 @@ Order confirmation by order key (public - no login required).
   "payment_method_title": "Razorpay"
 }
 ```
+
+---
+
+## Utils Module
+
+### GET /utils/countries
+
+Returns all countries and their states/provinces. Used to populate country and state dropdowns in checkout and account address forms. Without this, forms that require state selection (India, US, etc.) cannot work.
+
+**Cache**: 24 hours (never changes).
+
+```json
+{
+  "schema": "storefuse.countries.v1",
+  "api_version": "1.0.0",
+  "data": [
+    {
+      "code": "IN",
+      "name": "India",
+      "states": [
+        { "code": "MH", "name": "Maharashtra" },
+        { "code": "DL", "name": "Delhi" },
+        { "code": "KA", "name": "Karnataka" }
+      ]
+    },
+    {
+      "code": "US",
+      "name": "United States",
+      "states": [
+        { "code": "CA", "name": "California" },
+        { "code": "NY", "name": "New York" }
+      ]
+    }
+  ]
+}
+```
+
+Data comes from WooCommerce: `WC()->countries->get_countries()` and `WC()->countries->get_states()`. Always in sync with WC settings.
+
+### GET /utils/pincode/{pincode}
+
+Lookup city and state from an Indian pincode. Used to auto-fill city and state when a user enters their pincode in the checkout address form.
+
+```json
+{ "data": { "city": "Mumbai", "state": "Maharashtra", "state_code": "MH", "country": "IN" } }
+```
+
+Returns `404 { "error": { "code": "pincode_not_found" } }` if the pincode is invalid.
+
+Uses a static pincode dataset bundled with the plugin (India Post data). No external API call. Fires `storefuse_bridge_pincode_lookup` filter for stores that want to override with a live API (e.g. Shiprocket pincode service).
 
 ---
 

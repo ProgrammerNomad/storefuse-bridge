@@ -37,6 +37,12 @@ The goal is not "Next.js starter for WooCommerce." The goal is **headless commer
 
 12. **WordPress auth, not custom auth** - Authentication uses WordPress native cookies (`wp_signon`, `wp_set_auth_cookie`) and WooCommerce sessions. No JWT-first architecture, no Firebase, no Auth0. HTTP-only cookies only - never localStorage tokens. This keeps full compatibility with the WooCommerce plugin ecosystem (memberships, subscriptions, wishlists, loyalty plugins).
 
+13. **Public cache and session cache are strictly separate** - Public endpoints (`/products`, `/categories`, `/homepage`) return `Cache-Control: public, max-age=N` and are safe for CDN and shared caching. Session endpoints (`/cart`, `/account`, `/orders`, `/wishlist`) return `Cache-Control: no-store`. Mixing these causes cache leaks, wrong cart data for different users, and auth failures. This is enforced at the infrastructure level - not left to individual modules.
+
+14. **Cursor pagination is architecturally supported** - v1 uses `page` + `per_page` offset pagination. This is correct for v1 catalog sizes. The response `meta` envelope is designed to be extended: `cursor=` support can be added per endpoint without breaking existing `page=` consumers. Modules must never hardcode offset-only pagination at the query layer.
+
+15. **Commerce focus, not CMS expansion** - StoreFuse Bridge is a commerce storefront API. Posts and reviews exist because stores need content and social proof to sell products. StoreFuse Bridge will not become a generic WordPress CMS API, a headless content platform, or a page builder backend. Every feature request must pass the test: does a customer need this to complete a purchase?
+
 ---
 
 ## Full API Surface (Target)
@@ -53,8 +59,11 @@ GET  /storefuse/v1/homepage
 # Catalogue (public, cached)
 GET  /storefuse/v1/products
 GET  /storefuse/v1/products/{slug}
+POST /storefuse/v1/products/{slug}/notify      (back-in-stock alert signup)
 GET  /storefuse/v1/categories
 GET  /storefuse/v1/categories/{slug}
+GET  /storefuse/v1/attributes                  (all attributes + terms for filter sidebar)
+GET  /storefuse/v1/tags                        (all product tags)
 GET  /storefuse/v1/search?q=
 
 # Authentication
@@ -74,7 +83,10 @@ POST /storefuse/v1/account/change-password
 GET  /storefuse/v1/orders
 GET  /storefuse/v1/orders/{id}
 POST /storefuse/v1/orders/{id}/cancel
+POST /storefuse/v1/orders/{id}/reorder
+POST /storefuse/v1/orders/{id}/return-request
 GET  /storefuse/v1/orders/{id}/tracking
+GET  /storefuse/v1/orders/{id}/invoice
 
 # Addresses (requires login)
 GET  /storefuse/v1/addresses
@@ -107,6 +119,10 @@ GET  /storefuse/v1/reviews?product_id=
 POST /storefuse/v1/reviews
 GET  /storefuse/v1/posts
 GET  /storefuse/v1/posts/{slug}
+
+# Utilities (public)
+GET  /storefuse/v1/utils/countries
+GET  /storefuse/v1/utils/pincode/{pincode}      (pincode -> city/state lookup for India)
 
 # Downloads (requires login, digital products)
 GET  /storefuse/v1/downloads
@@ -150,16 +166,21 @@ Each group is a module. Build order follows phases below.
   - [ ] `get_cart_token(): string` - returns a session identifier safe to send to the frontend
   - [ ] `set_cart_token_header(WP_REST_Response $response): WP_REST_Response` - adds `X-StoreFuse-Cart-Token` to response headers for stateless clients (mobile apps)
 - [ ] Create `StoreFuse_Bridge_Format` class (`class-format.php`)
-  - [ ] `price(float $amount): array` - returns `{ "raw": 999.00, "formatted": "Rs. 999.00" }` using WC currency settings
-  - [ ] `image(int|null $attachment_id): string|null` - resolves attachment ID to full absolute URL, returns null if not found
+  - [ ] `price(float $amount): array` - returns `{ "raw": 999.00, "formatted": "Rs. 999.00", "currency": "INR", "symbol": "Rs." }` using WC currency settings. **Never return a price string directly. Every price value in every response uses this exact shape.**
+  - [ ] `image(int|null $attachment_id): array|null` - returns `{ "url": "...", "alt": "...", "width": 1200, "height": 1200, "srcset": ["url @300w", "url @600w"] }`. **Never return a raw URL string. Every image in every response uses this exact shape.** Returns placeholder shape when attachment_id is null.
   - [ ] `product(WC_Product $product): array` - full normalised product shape
   - [ ] `category(WP_Term $term): array` - normalised category shape
   - [ ] `date(string $date): string` - WP date string to ISO 8601
   - [ ] All formatting logic lives here. No duplicate price or image logic in modules.
 - [ ] Create `StoreFuse_Bridge_Errors` class (`class-errors.php`)
   - [ ] Static factory methods for every known error: `product_not_found()`, `category_not_found()`, `cart_item_not_found()`, `coupon_invalid()`, `coupon_expired()`, `out_of_stock()`, `checkout_failed()`, `invalid_nonce()`, `validation_error(string $message)`
-  - [ ] Each method returns a consistent `WP_REST_Response` with a fixed `code`, `message`, and HTTP status
+  - [ ] Each method returns a consistent `WP_REST_Response` with a fixed `code`, `message`, HTTP `status` code, and HTTP status. Error body shape: `{ "code": "product_not_found", "message": "...", "status": 404 }`. The `status` field is included in the body (not just the HTTP status code) so clients that don't inspect status codes still get the right error context.
   - [ ] Frontend never gets inconsistent error shapes. One place to update error copy.
+- [ ] Create `StoreFuse_Bridge_Request_Context` class (`class-request-context.php`)
+  - [ ] Resolved once per request, shared across all modules in that request
+  - [ ] Properties: `user` (WP_User|null), `session` (WC_Session|null), `currency` (string ISO 4217), `language` (string ISO 639), `device` (string: mobile|desktop|unknown), `cart_token` (string)
+  - [ ] `from_request(WP_REST_Request $request): self` static factory method
+  - [ ] Eliminates repeated `is_user_logged_in()`, `WC()->session`, `WC()->cart` calls scattered across modules. Modules receive context, they do not query it.
 - [ ] Register `GET /storefuse/v1/status` endpoint
   - Returns: plugin version, WP version, WC version, PHP version, active modules list
   - Also returns a `features` capability map:
@@ -899,6 +920,10 @@ Do not start cart until products is solid. Do not start checkout until cart is s
 ## Design Boundaries
 
 These are explicit decisions about what this plugin will NOT become. They are documented here so future contributors have context for why certain feature requests should be declined.
+
+**No generic CMS features**
+
+StoreFuse Bridge is a commerce API. Posts and reviews exist in scope because stores need content and social proof to sell products - not because StoreFuse Bridge is a general-purpose headless CMS. StoreFuse Bridge will not become: a news site API, a portfolio API, a generic custom post type browser, or a Gutenberg-replacement data layer. Every feature request passes this test: does a store customer need this to discover, evaluate, or purchase a product?
 
 **No visual page builder**
 
