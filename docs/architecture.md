@@ -32,6 +32,12 @@ storefuse-bridge/
 │   ├── class-cache.php               ← Transient cache helpers + invalidation hooks
 │   ├── class-admin.php               ← Admin menu + settings page
 │   ├── class-response.php            ← Shared response builder helpers
+│   ├── class-auth.php                ← Nonce validation, session checks, permission helpers
+│   ├── class-permissions.php         ← require_login(), can_manage_order(), verify_nonce()
+│   ├── class-session.php             ← WC session lifecycle + guest cart merge after login
+│   ├── class-format.php              ← price(), image(), product(), category(), date() formatters
+│   ├── class-errors.php              ← Static error factory (product_not_found, coupon_invalid, etc.)
+│   ├── class-wc-compat.php           ← WooCommerce version detection (HPOS, Store API, etc.)
 │   │
 │   └── modules/
 │       ├── class-module-status.php       ← GET /status
@@ -39,8 +45,10 @@ storefuse-bridge/
 │       ├── class-module-products.php     ← GET /products, GET /products/{slug}
 │       ├── class-module-categories.php   ← GET /categories, GET /categories/{slug}
 │       ├── class-module-search.php       ← GET /search
+│       ├── class-module-auth.php         ← POST /auth/login, /register, /logout, GET /auth/me, etc.
 │       ├── class-module-cart.php         ← GET/POST/PUT/DELETE /cart/*
 │       ├── class-module-checkout.php     ← GET/POST /checkout, GET /orders/{key}
+│       ├── class-module-customer.php     ← GET/PUT /account, /orders, /addresses, /wishlist, /downloads
 │       ├── class-module-content.php      ← GET/POST /reviews, GET /posts
 │       └── class-module-webhooks.php     ← Outgoing ISR revalidation webhooks
 │
@@ -132,7 +140,299 @@ Adding a new module (e.g. for WooCommerce Subscriptions) means creating one new 
 
 ---
 
-## Caching Layer
+## Auth Architecture
+
+### Strategy: WordPress cookies, not JWT
+
+The auth strategy for StoreFuse Bridge is **WordPress native cookies + WooCommerce sessions**. No JWT-first architecture, no Firebase, no Auth0.
+
+**Why not JWT:**
+- WooCommerce cart and checkout are built on PHP sessions and WP user context. JWT puts auth in a header; WC checks the logged-in user from the cookie/session context.
+- JWT requires token refresh handling on the frontend (annoying, error-prone).
+- HTTP-only cookies are more secure than localStorage tokens (no XSS token theft).
+- The WooCommerce plugin ecosystem (memberships, subscriptions, wishlists, loyalty) all rely on the WP user system being active in the request context. JWT breaks this.
+
+**What this means in practice:**
+- `POST /auth/login` calls `wp_signon()` then `wp_set_auth_cookie()`. The browser receives an HTTP-only cookie.
+- Every subsequent request from the browser includes the cookie automatically. `is_user_logged_in()` returns `true` on those requests.
+- `GET /auth/me` reads `wp_get_current_user()` and returns the user state.
+- No token is returned in the response body. The auth is in the cookie.
+
+**Future path:** If a mobile app or external client needs token-based auth, `class-auth.php` is the single place to add it. A token can be issued in addition to the cookie. Modules do not change.
+
+---
+
+## Auth Layer
+
+`StoreFuse_Bridge_Auth` (`class-auth.php`) centralises nonce validation and permission callables. No module duplicates this logic.
+
+```php
+class StoreFuse_Bridge_Auth {
+
+    // Used as permission_callback on public endpoints (products, settings, search)
+    public static function public_permission(): bool {
+        return true;
+    }
+
+    // Used as permission_callback on cart write endpoints
+    public static function cart_permission( WP_REST_Request $request ): bool {
+        return self::validate_nonce( $request );
+    }
+
+    // Used as permission_callback on checkout endpoints
+    public static function checkout_permission( WP_REST_Request $request ): bool {
+        return self::validate_nonce( $request ) && self::validate_cart_session();
+    }
+
+    public static function validate_nonce( WP_REST_Request $request ): bool {
+        $nonce = $request->get_header('X-WC-Nonce');
+        return $nonce && wp_verify_nonce( $nonce, 'wc_store_api' );
+    }
+
+    public static function validate_cart_session(): bool {
+        return WC()->session && WC()->session->get_session_cookie();
+    }
+}
+```
+
+The auth class is the single place to add JWT support, API key support, or any other auth mechanism in the future. Modules never change.
+
+---
+
+## Permissions Layer
+
+`StoreFuse_Bridge_Permissions` (`class-permissions.php`) provides `permission_callback` values for customer-authenticated endpoints. These are separate from `StoreFuse_Bridge_Auth` because they involve the logged-in user context rather than just nonce/session validation.
+
+```php
+class StoreFuse_Bridge_Permissions {
+
+    // Used on all customer endpoints: account, orders, addresses, wishlist, downloads
+    public static function require_login( WP_REST_Request $request ): bool|WP_REST_Response {
+        if ( ! is_user_logged_in() ) {
+            return StoreFuse_Bridge_Errors::not_authenticated();
+        }
+        return true;
+    }
+
+    // Used on order detail and order cancel endpoints
+    public static function can_manage_order( int $order_id ): bool {
+        $order = wc_get_order( $order_id );
+        if ( ! $order ) {
+            return false;
+        }
+        return (int) $order->get_customer_id() === get_current_user_id();
+    }
+
+    // Used on all state-changing auth endpoints (login, logout, register, etc.)
+    public static function verify_nonce( WP_REST_Request $request ): bool {
+        $nonce = $request->get_header('X-WP-Nonce');
+        return $nonce && wp_verify_nonce( $nonce, 'wp_rest' );
+    }
+}
+```
+
+Example order route:
+
+```php
+register_rest_route('storefuse/v1', '/orders/(?P<id>\d+)', [
+    'methods'             => 'GET',
+    'callback'            => function( $request ) {
+        $id = (int) $request['id'];
+        if ( ! StoreFuse_Bridge_Permissions::can_manage_order( $id ) ) {
+            return StoreFuse_Bridge_Errors::forbidden();
+        }
+        // ... return order
+    },
+    'permission_callback' => ['StoreFuse_Bridge_Permissions', 'require_login'],
+]);
+```
+
+Customer A cannot read Customer B's orders. The ownership check is enforced inside the callback, not just at the permission level.
+
+---
+
+## Session Management
+
+`StoreFuse_Bridge_Session` (`class-session.php`) manages WooCommerce session lifecycle and the critical guest-to-user cart merge.
+
+### Guest cart merge after login
+
+This is one of the most important ecommerce requirements and one of the most commonly missed in headless WooCommerce implementations.
+
+**The problem:** A user visits the store as a guest and adds 3 items to the cart. The items are stored in a WC guest session. The user then logs in. Without merge logic, the guest session is destroyed and the cart appears empty - the user sees the 3 items disappear and abandons the purchase.
+
+**The solution:**
+
+```php
+class StoreFuse_Bridge_Session {
+
+    public static function init(): void {
+        // Hook into WordPress login to trigger merge
+        add_action('wp_login', [self::class, 'merge_guest_cart_after_login'], 10, 2);
+    }
+
+    public static function merge_guest_cart_after_login( string $user_login, \WP_User $user ): void {
+        // At this point: the guest session still has the pre-login cart
+        // wp_signon() has just completed and the user is now logged in
+        if ( ! WC()->cart ) {
+            return;
+        }
+
+        // Get current guest cart items
+        $guest_items = WC()->cart->get_cart();
+        if ( empty( $guest_items ) ) {
+            return;
+        }
+
+        // WC handles session migration - we ensure the cart is recalculated
+        WC()->cart->maybe_set_cart_cookies();
+        WC()->cart->calculate_totals();
+
+        do_action('storefuse_bridge_guest_cart_merged', $user->ID, $guest_items);
+    }
+
+    public static function get_cart_token(): string {
+        return WC()->session ? WC()->session->get_customer_id() : '';
+    }
+
+    public static function set_cart_token_header( WP_REST_Response $response ): WP_REST_Response {
+        $response->header('X-StoreFuse-Cart-Token', self::get_cart_token());
+        return $response;
+    }
+}
+```
+
+The `storefuse_bridge_guest_cart_merged` action lets external code react to the merge (e.g. loyalty point systems, analytics).
+
+### Cart token for stateless clients (mobile apps)
+
+Mobile apps cannot use browser cookies for cart session. The `X-StoreFuse-Cart-Token` header is included in every cart response. Mobile clients send this token back in requests via the `X-WC-Nonce` header to maintain session continuity.
+
+---
+
+`StoreFuse_Bridge_Format` (`class-format.php`) contains every normalisation function. No module contains its own price formatting or image URL resolution.
+
+```php
+class StoreFuse_Bridge_Format {
+
+    public static function price( float $raw ): array {
+        return [
+            'raw'       => $raw,
+            'formatted' => wc_price( $raw ),
+        ];
+    }
+
+    public static function image( ?int $attachment_id ): ?string {
+        if ( ! $attachment_id ) {
+            return wc_placeholder_img_src('woocommerce_single');
+        }
+        return wp_get_attachment_image_url( $attachment_id, 'woocommerce_single' ) ?: null;
+    }
+
+    public static function date( string $wp_date ): string {
+        return (new \DateTime( $wp_date ))->format( \DateTime::ATOM );
+    }
+
+    public static function product( \WC_Product $product ): array {
+        return [
+            'id'          => $product->get_id(),
+            'name'        => $product->get_name(),
+            'slug'        => $product->get_slug(),
+            'price'       => self::price( (float) $product->get_price() ),
+            'sale_price'  => $product->is_on_sale() ? self::price( (float) $product->get_sale_price() ) : null,
+            'images'      => array_map(
+                fn($id) => self::image($id),
+                array_filter( [$product->get_image_id(), ...$product->get_gallery_image_ids()] )
+            ),
+            'in_stock'    => $product->is_in_stock(),
+            'stock_qty'   => $product->get_stock_quantity(),
+        ];
+    }
+
+    public static function category( \WP_Term $term ): array {
+        $thumbnail_id = (int) get_term_meta( $term->term_id, 'thumbnail_id', true );
+        return [
+            'id'          => $term->term_id,
+            'name'        => $term->name,
+            'slug'        => $term->slug,
+            'description' => $term->description,
+            'count'       => $term->count,
+            'image'       => self::image( $thumbnail_id ?: null ),
+            'parent'      => $term->parent ?: null,
+        ];
+    }
+}
+```
+
+Why this matters: if WooCommerce changes how price is stored or how gallery images are accessed, one method in one file changes. Every endpoint that uses `StoreFuse_Bridge_Format::product()` is immediately correct.
+
+---
+
+## Error Registry
+
+`StoreFuse_Bridge_Errors` (`class-errors.php`) is a static factory for every known error response. No module constructs raw error arrays.
+
+```php
+class StoreFuse_Bridge_Errors {
+
+    public static function product_not_found(): WP_REST_Response {
+        return self::make( 'product_not_found', 'Product not found.', 404 );
+    }
+
+    public static function category_not_found(): WP_REST_Response {
+        return self::make( 'category_not_found', 'Category not found.', 404 );
+    }
+
+    public static function out_of_stock(): WP_REST_Response {
+        return self::make( 'out_of_stock', 'This product is out of stock.', 422 );
+    }
+
+    public static function coupon_invalid(): WP_REST_Response {
+        return self::make( 'coupon_invalid', 'Coupon code is invalid.', 422 );
+    }
+
+    public static function coupon_expired(): WP_REST_Response {
+        return self::make( 'coupon_expired', 'This coupon has expired.', 422 );
+    }
+
+    public static function invalid_nonce(): WP_REST_Response {
+        return self::make( 'invalid_nonce', 'Security token invalid. Refresh the page and try again.', 403 );
+    }
+
+    public static function checkout_failed( string $reason = '' ): WP_REST_Response {
+        $message = 'Checkout failed.' . ($reason ? ' ' . $reason : '');
+        return self::make( 'checkout_failed', $message, 422 );
+    }
+
+    public static function validation_error( string $message ): WP_REST_Response {
+        return self::make( 'validation_error', $message, 422 );
+    }
+
+    private static function make( string $code, string $message, int $status ): WP_REST_Response {
+        return new WP_REST_Response([
+            'schema'      => 'storefuse.error.v1',
+            'api_version' => STOREFUSE_BRIDGE_VERSION,
+            'error'       => [
+                'code'    => $code,
+                'message' => $message,
+            ],
+        ], $status);
+    }
+}
+```
+
+Usage in a module:
+
+```php
+$product = wc_get_product_by_slug( $slug );
+if ( ! $product ) {
+    return StoreFuse_Bridge_Errors::product_not_found();
+}
+```
+
+The frontend always receives the same error shape. Error messages can be updated in one place. New error types require one new static method.
+
+---
 
 `StoreFuse_Bridge_Cache` wraps WordPress transients with:
 - A consistent key prefix (`storefuse_bridge_`)
@@ -362,12 +662,38 @@ Full settings schema is documented in [api-reference.md](api-reference.md).
 |---|---|
 | Public endpoints leak sensitive data | All public endpoints return only storefront-safe data. No order details, no customer PII, no API keys. |
 | Cart/checkout manipulation | All cart operations use WC's own validation (stock checks, price validation). The plugin cannot be used to set arbitrary prices. |
-| CSRF on cart/checkout | Cart POST endpoints require a WC nonce (`X-WC-Nonce` header) issued by a previous GET /cart request. |
-| Admin form CSRF | All admin form submissions verified with `wp_verify_nonce()`. |
+| CSRF on cart/checkout | Cart POST endpoints use `StoreFuse_Bridge_Auth::cart_permission()` which validates the `X-WC-Nonce` header. Nonce is issued by the previous `GET /cart` response. |
+| Admin form CSRF | All admin form submissions verified with `wp_verify_nonce()` and `current_user_can('manage_options')`. |
 | SQL injection | Zero direct SQL queries. All WP/WC API functions used. |
 | XSS in admin | All stored strings sanitized on write, escaped on output. |
 | CORS | Configurable allowed origins in plugin settings. Defaults to `*` for development, restrict in production. |
-| Rate limiting | Not built-in (WordPress has no native rate limiter). Delegate to server-level (nginx, Cloudflare). Documented in deployment guide. |
+| Rate limiting | Not built-in (WordPress has no native rate limiter). Delegate to server-level (nginx, Cloudflare). The plugin fires `do_action('storefuse_bridge_rate_limit_hit', $request)` on all cart/checkout write endpoints - security plugins, fail2ban integrations, and analytics can hook this without patching the plugin. |
+
+---
+
+## Design Boundaries
+
+These are documented decisions about what this plugin will not become. They exist to prevent architecture drift.
+
+**No GraphQL**
+
+The entire value of StoreFuse Bridge is opinionated, cacheable, pre-aggregated REST responses. GraphQL endpoints cannot be cached at the HTTP layer (all requests are POST), allow clients to request arbitrary field shapes (removing response guarantees), and destroy the server's ability to pre-aggregate data. Every GraphQL argument in this context is solved better by a well-designed REST endpoint. This is non-negotiable.
+
+**No visual page builder**
+
+The Layout API block array is a data API, not a visual editor. StoreFuse Bridge emits blocks. It does not render them, preview them, or provide a drag-and-drop canvas. The admin settings pages are the visual editing surface, and they are forms - not a block editor replacement.
+
+**No plugin marketplace before v1.0 stability**
+
+Extensions are supported via WordPress filters (see Extension Filters section). But a marketplace, addon store, or paid extension ecosystem should not exist until v1.0 is production-tested on real stores. Building distribution infrastructure before the core is stable fragments developer attention.
+
+**No jQuery in admin**
+
+Admin JavaScript is vanilla JS. No jQuery. This avoids a dependency on a library WordPress will eventually remove and keeps admin assets small and auditable.
+
+**No direct database queries**
+
+All data access goes through WooCommerce and WordPress functions. `$wpdb` is never used. When WooCommerce changes storage (HPOS), the compatibility layer (`StoreFuse_Bridge_WC_Compat`) handles it in one place.
 
 ---
 

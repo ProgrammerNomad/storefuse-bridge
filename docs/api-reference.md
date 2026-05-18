@@ -2,8 +2,8 @@
 
 **Base URL**: `https://your-wordpress-site.com/wp-json/storefuse/v1`
 
-**All endpoints are public and read-only** unless noted otherwise.  
-Cart and checkout endpoints require a WC nonce (issued by `GET /cart`).  
+**Authentication**: Public endpoints require no auth. Customer endpoints require a logged-in session (WordPress auth cookie set by `POST /auth/login`). Cart/checkout write endpoints require an `X-WP-Nonce` header. Auth write endpoints require an `X-WP-Nonce` header (CSRF protection).
+
 All responses: `Content-Type: application/json`.
 
 **Standard response envelope** - every response wraps data in:
@@ -22,9 +22,71 @@ Why: the `schema` field lets the frontend detect which version of a response sha
 X-StoreFuse-Bridge-Version: 1.0.0
 X-StoreFuse-Cache: HIT | MISS
 Cache-Control: public, max-age=600
+X-StoreFuse-Cart-Token: {session_id}   (cart/auth endpoints only)
 ```
 
-**Data normalisation guarantee** - no WordPress or WooCommerce internal concepts appear in responses. No `post_meta` keys, no taxonomy IDs, no ACF field names. The plugin normalises everything into clean, semantically named fields. Third-party integrations (SEO, translations, custom fields) inject data under normalised keys via extension filters.
+**Data normalisation guarantee** - no WordPress or WooCommerce internal concepts appear in responses. No `post_meta` keys, no taxonomy IDs, no ACF field names. The plugin normalises everything into clean, semantically named fields.
+
+---
+
+## API Index
+
+```
+# Public
+GET  /status
+GET  /settings
+GET  /navigation
+GET  /homepage
+GET  /products
+GET  /products/{slug}
+GET  /categories
+GET  /categories/{slug}
+GET  /search?q=
+GET  /reviews?product_id=
+POST /reviews
+GET  /posts
+GET  /posts/{slug}
+
+# Authentication
+POST /auth/register
+POST /auth/login
+POST /auth/logout
+GET  /auth/me
+POST /auth/forgot-password
+POST /auth/reset-password
+
+# Customer (requires login)
+GET  /account
+PUT  /account
+POST /account/change-password
+GET  /orders
+GET  /orders/{id}
+POST /orders/{id}/cancel
+GET  /orders/{id}/tracking
+GET  /addresses
+PUT  /addresses/billing
+PUT  /addresses/shipping
+GET  /wishlist
+POST /wishlist/add
+DELETE /wishlist/remove
+GET  /downloads
+
+# Cart (session, nonce required for writes)
+GET    /cart
+POST   /cart/add
+PUT    /cart/update
+DELETE /cart/remove
+POST   /cart/coupon
+DELETE /cart/coupon
+
+# Checkout
+GET  /checkout/config
+GET  /checkout/payment-methods
+GET  /checkout/shipping-methods
+POST /checkout
+POST /checkout/redirect-url
+GET  /orders/{key}     (public, by order key - for Thank You page)
+```
 
 ---
 
@@ -32,7 +94,7 @@ Cache-Control: public, max-age=600
 
 ### GET /status
 
-Health check. Confirms plugin is active and lists available modules.
+Health check. Confirms plugin is active, lists available modules, and exposes a `features` capability map.
 
 ```json
 {
@@ -56,10 +118,23 @@ Health check. Confirms plugin is active and lists available modules.
       "checkout": true,
       "content": true,
       "webhooks": false
+    },
+    "features": {
+      "hpos": true,
+      "store_api": true,
+      "headless_checkout": false,
+      "subscriptions": false,
+      "wpml": false,
+      "polylang": false,
+      "yoast_seo": true,
+      "rank_math": false,
+      "acf": false
     }
   }
 }
 ```
+
+The `features` map is detected at request time via `class_exists()` and `is_plugin_active()`. The storefront reads this once on startup to determine runtime behaviour (e.g. whether to show a language switcher, which SEO data fields to expect). No hardcoded capability checks in the storefront codebase.
 
 ---
 
@@ -461,6 +536,266 @@ Returns current cart. Issues a new cart nonce in the `X-WC-Nonce` response heade
 
 **Body**: `{ "coupon_code": "DIWALI20" }`  
 **Returns**: Updated cart.
+
+---
+
+## Auth Module
+
+Auth uses WordPress native cookies. No token is returned in the response body. The browser receives an HTTP-only cookie from `wp_set_auth_cookie()` and includes it automatically on every subsequent request.
+
+**CSRF protection**: All write endpoints (`login`, `logout`, `register`, `forgot-password`, `reset-password`) require the `X-WP-Nonce` header.
+
+### POST /auth/register
+
+Creates a new customer account and immediately logs them in.
+
+**Body**:
+```json
+{ "email": "user@example.com", "password": "secure123", "first_name": "Priya", "last_name": "Sharma" }
+```
+
+**Response**:
+```json
+{
+  "schema": "storefuse.auth.v1",
+  "api_version": "1.0.0",
+  "data": {
+    "user": {
+      "id": 42,
+      "name": "Priya Sharma",
+      "email": "user@example.com",
+      "avatar_url": "https://gravatar.com/..."
+    }
+  }
+}
+```
+
+Auto-login after registration is mandatory. Do not make users log in after registering - it kills conversion rate.
+
+### POST /auth/login
+
+```json
+{ "email": "user@example.com", "password": "secure123" }
+```
+
+**Response**: Same shape as `/auth/register` response. HTTP-only auth cookie is set by the server. Guest cart items are merged into the user cart automatically.
+
+**Error responses**: `{ "error": { "code": "invalid_credentials", "message": "Email or password is incorrect." } }`
+
+### POST /auth/logout
+
+No body required. Requires `X-WP-Nonce` header.
+
+**Response**: `{ "data": { "logged_out": true } }`
+
+### GET /auth/me
+
+Called on storefront startup. No auth required (returns `logged_in: false` gracefully if not authenticated).
+
+**Response (logged in)**:
+```json
+{
+  "schema": "storefuse.auth.v1",
+  "api_version": "1.0.0",
+  "data": {
+    "logged_in": true,
+    "user": {
+      "id": 42,
+      "name": "Priya Sharma",
+      "email": "user@example.com",
+      "avatar_url": "https://gravatar.com/..."
+    }
+  }
+}
+```
+
+**Response (not logged in)**:
+```json
+{ "data": { "logged_in": false } }
+```
+
+### POST /auth/forgot-password
+
+Triggers the WordPress password reset email. Does not reveal whether the email exists (prevents user enumeration).
+
+**Body**: `{ "email": "user@example.com" }`
+
+**Response**: `{ "data": { "sent": true } }` - always, regardless of whether account exists.
+
+Internally calls `retrieve_password()`. WordPress sends the email using its own template. Do not write custom email logic.
+
+### POST /auth/reset-password
+
+Completes the password reset using the key from the email link.
+
+**Body**: `{ "key": "abc123", "login": "user@example.com", "password": "newSecurePass" }`
+
+Internally calls `check_password_reset_key()` then `reset_password()`. WordPress core handles validation.
+
+**Response**: `{ "data": { "reset": true } }` or error `invalid_key`.
+
+---
+
+## Customer Module
+
+All endpoints in this section require the user to be logged in. Unauthenticated requests return `401 { "error": { "code": "not_authenticated" } }`.
+
+### GET /account
+
+```json
+{
+  "schema": "storefuse.customer.v1",
+  "api_version": "1.0.0",
+  "data": {
+    "id": 42,
+    "email": "user@example.com",
+    "first_name": "Priya",
+    "last_name": "Sharma",
+    "avatar_url": "https://gravatar.com/...",
+    "date_registered": "2026-01-15T10:00:00Z"
+  }
+}
+```
+
+### PUT /account
+
+**Body**: `{ "first_name": "Priya", "last_name": "Patel" }`
+
+**Response**: Updated customer object.
+
+### POST /account/change-password
+
+**Body**: `{ "current_password": "old", "new_password": "newSecure123" }`
+
+Validates current password before accepting the change. Returns `422 { "error": { "code": "invalid_current_password" } }` if current password is wrong.
+
+### GET /orders
+
+Returns the current customer's order history.
+
+**Query params**: `per_page` (default 10), `page` (default 1), `status` (filter by order status)
+
+```json
+{
+  "schema": "storefuse.orders.v1",
+  "api_version": "1.0.0",
+  "data": [
+    {
+      "id": 123,
+      "number": "#123",
+      "status": "processing",
+      "status_label": "Processing",
+      "date": "2026-05-18T10:00:00Z",
+      "item_count": 2,
+      "total": { "raw": 998.00, "formatted": "Rs. 998.00" }
+    }
+  ],
+  "meta": { "total": 12, "page": 1, "per_page": 10 }
+}
+```
+
+### GET /orders/{id}
+
+Full order detail. Returns 403 if the order belongs to a different customer.
+
+```json
+{
+  "schema": "storefuse.order.v1",
+  "api_version": "1.0.0",
+  "data": {
+    "id": 123,
+    "number": "#123",
+    "status": "processing",
+    "date": "2026-05-18T10:00:00Z",
+    "items": [
+      {
+        "name": "Diya Set",
+        "slug": "diya-set",
+        "image": "https://...",
+        "qty": 2,
+        "price": { "raw": 499.00, "formatted": "Rs. 499.00" },
+        "subtotal": { "raw": 998.00, "formatted": "Rs. 998.00" }
+      }
+    ],
+    "totals": {
+      "subtotal": { "raw": 998.00, "formatted": "Rs. 998.00" },
+      "shipping": { "raw": 0, "formatted": "Free" },
+      "tax": { "raw": 0, "formatted": "Rs. 0.00" },
+      "discount": { "raw": 100.00, "formatted": "Rs. 100.00" },
+      "total": { "raw": 898.00, "formatted": "Rs. 898.00" }
+    },
+    "payment": { "method": "razorpay", "method_title": "Razorpay", "status": "paid" },
+    "tracking": { "available": true, "carrier": "Delhivery", "tracking_number": "DL123456" },
+    "billing": { "first_name": "Priya", "last_name": "Sharma", "address_1": "...", "city": "Mumbai", "postcode": "400001", "country": "IN", "phone": "+91..." },
+    "shipping": { "first_name": "Priya", "last_name": "Sharma", "address_1": "...", "city": "Mumbai", "postcode": "400001", "country": "IN" }
+  }
+}
+```
+
+### POST /orders/{id}/cancel
+
+Cancels a `pending` or `on-hold` order. Returns 422 if order is not in a cancellable state.
+
+### GET /orders/{id}/tracking
+
+```json
+{ "data": { "available": true, "carrier": "Delhivery", "tracking_number": "DL123456", "tracking_url": "https://..." } }
+```
+
+Returns `{ "data": { "available": false } }` if no tracking has been set.
+
+### GET /addresses
+
+```json
+{
+  "data": {
+    "billing": { "first_name": "Priya", "last_name": "Sharma", "address_1": "...", "city": "Mumbai", "postcode": "400001", "country": "IN", "phone": "+91..." },
+    "shipping": { "first_name": "Priya", "last_name": "Sharma", "address_1": "...", "city": "Mumbai", "postcode": "400001", "country": "IN" }
+  }
+}
+```
+
+### PUT /addresses/billing and PUT /addresses/shipping
+
+**Body**: Address fields object. All fields optional - only provided fields are updated.
+
+### GET /wishlist
+
+Returns saved wishlist items as normalised product objects.
+
+```json
+{
+  "data": [
+    { "id": 56, "slug": "silk-dupatta", "name": "Silk Dupatta", "price": { "formatted": "Rs. 1,299.00" }, "image": "https://...", "in_stock": true }
+  ]
+}
+```
+
+### POST /wishlist/add
+
+**Body**: `{ "product_id": 56 }`
+
+### DELETE /wishlist/remove
+
+**Body**: `{ "product_id": 56 }`
+
+### GET /downloads
+
+Returns digital product downloads available to the current customer.
+
+```json
+{
+  "data": [
+    {
+      "product_name": "StoreFuse Starter Theme",
+      "file_name": "storefuse-starter-v1.zip",
+      "download_url": "https://...",
+      "expires_at": null,
+      "downloads_remaining": "unlimited"
+    }
+  ]
+}
+```
 
 ---
 

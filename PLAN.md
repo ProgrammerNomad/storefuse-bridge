@@ -33,39 +33,83 @@ The goal is not "Next.js starter for WooCommerce." The goal is **headless commer
 
 10. **Schema/version envelope** - Every response carries a `schema` identifier and `api_version`. This makes client-side compatibility detection trivial and simplifies debugging across plugin versions.
 
+11. **StoreFuse contracts are the source of truth** - Before building any endpoint, the StoreFuse type for that resource is defined. `Product`, `Order`, `Customer`, `Cart`, `Address` are stable contracts. WooCommerce data maps into them. The frontend, mobile apps, and any future clients all consume the same contract. WooCommerce internals are never exposed.
+
+12. **WordPress auth, not custom auth** - Authentication uses WordPress native cookies (`wp_signon`, `wp_set_auth_cookie`) and WooCommerce sessions. No JWT-first architecture, no Firebase, no Auth0. HTTP-only cookies only - never localStorage tokens. This keeps full compatibility with the WooCommerce plugin ecosystem (memberships, subscriptions, wishlists, loyalty plugins).
+
 ---
 
 ## Full API Surface (Target)
 
 ```
+# Health
 GET  /storefuse/v1/status
 
+# Site configuration (public)
 GET  /storefuse/v1/settings
 GET  /storefuse/v1/navigation
 GET  /storefuse/v1/homepage
 
+# Catalogue (public, cached)
 GET  /storefuse/v1/products
 GET  /storefuse/v1/products/{slug}
 GET  /storefuse/v1/categories
 GET  /storefuse/v1/categories/{slug}
 GET  /storefuse/v1/search?q=
 
-GET  /storefuse/v1/cart
-POST /storefuse/v1/cart/add
-PUT  /storefuse/v1/cart/update
+# Authentication
+POST /storefuse/v1/auth/register
+POST /storefuse/v1/auth/login
+POST /storefuse/v1/auth/logout
+GET  /storefuse/v1/auth/me
+POST /storefuse/v1/auth/forgot-password
+POST /storefuse/v1/auth/reset-password
+
+# Customer account (requires login)
+GET  /storefuse/v1/account
+PUT  /storefuse/v1/account
+POST /storefuse/v1/account/change-password
+
+# Orders (requires login)
+GET  /storefuse/v1/orders
+GET  /storefuse/v1/orders/{id}
+POST /storefuse/v1/orders/{id}/cancel
+GET  /storefuse/v1/orders/{id}/tracking
+
+# Addresses (requires login)
+GET  /storefuse/v1/addresses
+PUT  /storefuse/v1/addresses/billing
+PUT  /storefuse/v1/addresses/shipping
+
+# Wishlist (requires login)
+GET  /storefuse/v1/wishlist
+POST /storefuse/v1/wishlist/add
+DELETE /storefuse/v1/wishlist/remove
+
+# Cart (session-based, works guest + logged in)
+GET    /storefuse/v1/cart
+POST   /storefuse/v1/cart/add
+PUT    /storefuse/v1/cart/update
 DELETE /storefuse/v1/cart/remove
-POST /storefuse/v1/cart/coupon
+POST   /storefuse/v1/cart/coupon
 DELETE /storefuse/v1/cart/coupon
 
+# Checkout
 GET  /storefuse/v1/checkout/config
 GET  /storefuse/v1/checkout/payment-methods
 GET  /storefuse/v1/checkout/shipping-methods
 POST /storefuse/v1/checkout
 POST /storefuse/v1/checkout/redirect-url
-GET  /storefuse/v1/orders/{key}
+GET  /storefuse/v1/orders/{key}    (order confirmation by order key, public)
 
+# Content (public)
 GET  /storefuse/v1/reviews?product_id=
 POST /storefuse/v1/reviews
+GET  /storefuse/v1/posts
+GET  /storefuse/v1/posts/{slug}
+
+# Downloads (requires login, digital products)
+GET  /storefuse/v1/downloads
 ```
 
 Each group is a module. Build order follows phases below.
@@ -89,11 +133,54 @@ Each group is a module. Build order follows phases below.
 - [ ] Create `StoreFuse_Bridge_Module` base abstract class
   - [ ] `register_routes()` method - each module implements this
   - [ ] `is_enabled()` method - checks plugin settings
+- [ ] Create `StoreFuse_Bridge_Auth` class (`class-auth.php`)
+  - [ ] `validate_nonce(WP_REST_Request $request): bool` - validates `X-WC-Nonce` header
+  - [ ] `validate_cart_session(): bool` - confirms a WC session exists for the request
+  - [ ] `get_permission_callback(string $type): callable` - returns the correct permission_callback per endpoint type (`public`, `cart`, `checkout`)
+  - [ ] Future-ready: internal hook point for JWT/token auth without changing module code
+  - [ ] Used by: Cart module, Checkout module, Review POST. Never duplicated across modules.
+- [ ] Create `StoreFuse_Bridge_Permissions` class (`class-permissions.php`)
+  - [ ] `require_login(WP_REST_Request $request): bool|WP_REST_Response` - returns error response if user is not logged in, used as `permission_callback` on all customer endpoints
+  - [ ] `verify_nonce(WP_REST_Request $request): bool` - verifies `X-WP-Nonce` header for write operations
+  - [ ] `can_manage_order(int $order_id): bool` - confirms the current user owns the order (prevents customer A reading customer B orders)
+  - [ ] This class keeps module route definitions clean. No auth logic inline inside callback handlers.
+- [ ] Create `StoreFuse_Bridge_Session` class (`class-session.php`)
+  - [ ] Manages WC session lifecycle: initialise, read, write, destroy
+  - [ ] `merge_guest_cart_after_login(int $user_id): void` - called on `wp_login` hook. Merges any items in the guest session cart into the user's saved cart. This is a critical ecommerce requirement: user adds to cart as guest, logs in, and items must not disappear.
+  - [ ] `get_cart_token(): string` - returns a session identifier safe to send to the frontend
+  - [ ] `set_cart_token_header(WP_REST_Response $response): WP_REST_Response` - adds `X-StoreFuse-Cart-Token` to response headers for stateless clients (mobile apps)
+- [ ] Create `StoreFuse_Bridge_Format` class (`class-format.php`)
+  - [ ] `price(float $amount): array` - returns `{ "raw": 999.00, "formatted": "Rs. 999.00" }` using WC currency settings
+  - [ ] `image(int|null $attachment_id): string|null` - resolves attachment ID to full absolute URL, returns null if not found
+  - [ ] `product(WC_Product $product): array` - full normalised product shape
+  - [ ] `category(WP_Term $term): array` - normalised category shape
+  - [ ] `date(string $date): string` - WP date string to ISO 8601
+  - [ ] All formatting logic lives here. No duplicate price or image logic in modules.
+- [ ] Create `StoreFuse_Bridge_Errors` class (`class-errors.php`)
+  - [ ] Static factory methods for every known error: `product_not_found()`, `category_not_found()`, `cart_item_not_found()`, `coupon_invalid()`, `coupon_expired()`, `out_of_stock()`, `checkout_failed()`, `invalid_nonce()`, `validation_error(string $message)`
+  - [ ] Each method returns a consistent `WP_REST_Response` with a fixed `code`, `message`, and HTTP status
+  - [ ] Frontend never gets inconsistent error shapes. One place to update error copy.
 - [ ] Register `GET /storefuse/v1/status` endpoint
   - Returns: plugin version, WP version, WC version, PHP version, active modules list
+  - Also returns a `features` capability map:
+    ```json
+    {
+      "features": {
+        "hpos": true,
+        "store_api": true,
+        "headless_checkout": false,
+        "subscriptions": false,
+        "wpml": false,
+        "yoast_seo": true,
+        "rank_math": false
+      }
+    }
+    ```
+  - Frontend reads this at runtime to adjust behaviour without hardcoded capability checks
+  - Each key is detected via `class_exists()` or `is_plugin_active()` at request time
 - [ ] Confirm plugin activates on XAMPP local WordPress
 
-**Deliverable**: Plugin activates. `/storefuse/v1/status` returns 200 with version info.
+**Deliverable**: Plugin activates. `/storefuse/v1/status` returns 200 with version info and feature flags.
 
 ---
 
@@ -397,8 +484,9 @@ Every section of the storefront home page is configurable here. No hardcoded con
 - [ ] Session management:
   - Read/write WC session via `WC()->session`
   - Use `wc-cart-nonce` cookie for cart identification
-  - Return `cart_token` in response headers for stateless clients
-- [ ] `GET /cart` - return current cart
+  - Return `cart_token` in response headers for stateless clients- [ ] Rate limit action hook on all write endpoints (add, update, remove, coupon):
+    - `do_action('storefuse_bridge_rate_limit_hit', $request)`
+    - This action fires when a write request is received. The plugin does not rate-limit itself - that belongs at the server layer (nginx, Cloudflare). But firing this action lets security plugins, analytics, and fail2ban integrations react to high-frequency requests without needing to patch plugin files.- [ ] `GET /cart` - return current cart
   - Items (with product name, image, price, quantity, subtotal)
   - Totals (subtotal, shipping, tax, discount, total)
   - Applied coupons
@@ -424,7 +512,116 @@ Every section of the storefront home page is configurable here. No hardcoded con
 
 ---
 
-## Phase 7: Checkout Module
+## Phase 7: Auth Module
+
+**Goal**: A complete authentication system that uses WordPress native auth and WooCommerce sessions. No JWT, no custom token system, no Firebase. The frontend never talks directly to WordPress auth APIs.
+
+**Auth strategy**: WordPress auth cookies (`wp_signon`, `wp_set_auth_cookie`) + HTTP-only cookies. This keeps full compatibility with the WooCommerce plugin ecosystem - memberships, subscriptions, wishlists, loyalty plugins, affiliate plugins all rely on the WP user system. Changing auth breaks them.
+
+**What to avoid**:
+- JWT-first architecture - painful with WC sessions, annoying token refresh handling
+- localStorage auth tokens - XSS risk, not needed when HTTP-only cookies work
+- Firebase, Auth0, Clerk - breaks the WooCommerce ecosystem compatibility
+- Custom password reset logic - use WP core (`retrieve_password()`, `reset_password()`) internally
+
+**Endpoints**: `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/forgot-password`, `POST /auth/reset-password`
+
+- [ ] `POST /auth/register` - create a new customer account
+  - Body: `{ "email": "...", "password": "...", "first_name": "...", "last_name": "..." }`
+  - Internally: `wc_create_new_customer()` (creates WP user + WC customer meta in one call)
+  - After register: call `wp_set_auth_cookie()` to auto-login - critical for conversion rate
+  - Returns: `{ "user": { "id", "name", "email" } }` - no token, auth is in the HTTP-only cookie
+  - Extension filter: `storefuse_bridge_register_response`
+- [ ] `POST /auth/login` - authenticate an existing customer
+  - Body: `{ "email": "...", "password": "..." }`
+  - Internally: `wp_signon()` then `wp_set_auth_cookie()`
+  - On success: fire `storefuse_bridge_after_login` action so `StoreFuse_Bridge_Session::merge_guest_cart_after_login()` can run - guest cart items merge into logged-in cart
+  - Returns: `{ "user": { "id", "name", "email" } }` - cookie set by server, browser stores it automatically
+  - Extension filter: `storefuse_bridge_login_response`
+- [ ] `POST /auth/logout` - end the session
+  - Internally: `wp_logout()`, destroy WC session
+  - Requires: `X-WP-Nonce` header (CSRF protection on all state-changing auth endpoints)
+- [ ] `GET /auth/me` - bootstrap check for the frontend
+  - Called on storefront startup to determine if user is logged in
+  - If logged in: `{ "logged_in": true, "user": { "id", "name", "email", "avatar_url" } }`
+  - If not logged in: `{ "logged_in": false }`
+  - This powers: account menu, orders link, wishlist, address book, personalised content
+  - No nonce required (read-only, safe)
+- [ ] `POST /auth/forgot-password` - trigger password reset email
+  - Body: `{ "email": "..." }`
+  - Internally: `retrieve_password($login)` - WordPress sends the email using its own template
+  - Do NOT write custom email logic. WP core handles it.
+  - Returns: `{ "sent": true }` regardless of whether email exists (security - prevents user enumeration)
+- [ ] `POST /auth/reset-password` - complete the password reset
+  - Body: `{ "key": "...", "login": "...", "password": "..." }`
+  - Internally: `check_password_reset_key()` to validate, then `reset_password()`
+  - Do NOT write custom reset logic. WP core handles it.
+- [ ] Guest cart merge after login:
+  - `StoreFuse_Bridge_Session::merge_guest_cart_after_login()` is hooked to `wp_login` WordPress action
+  - Reads any items in the current (guest) WC session cart
+  - Loads the user's saved cart
+  - Merges items, resolves duplicates by adding quantities
+  - This is a critical ecommerce requirement. Losing a guest cart on login causes abandoned purchases.
+- [ ] CSRF protection on all write endpoints (`login`, `logout`, `register`, `forgot-password`, `reset-password`) via `X-WP-Nonce` header
+- [ ] Extension filter: `storefuse_bridge_auth_response` - for social login plugin integration (Nextend Social Login, miniOrange, etc.)
+
+**Deliverable**: Complete customer auth powered by WordPress. HTTP-only cookie session. Guest cart preserved through login. Frontend only calls `/storefuse/v1/auth/*`.
+
+---
+
+## Phase 8: Customer APIs
+
+**Goal**: A complete customer account API surface for the logged-in experience. Orders, addresses, account details, wishlist, and digital downloads.
+
+**Auth requirement**: All endpoints in this phase use `StoreFuse_Bridge_Permissions::require_login()` as `permission_callback`. Unauthenticated requests get a 401.
+
+**Endpoints**: `GET /account`, `PUT /account`, `POST /account/change-password`, `GET /orders`, `GET /orders/{id}`, `POST /orders/{id}/cancel`, `GET /orders/{id}/tracking`, `GET /addresses`, `PUT /addresses/billing`, `PUT /addresses/shipping`, `GET /wishlist`, `POST /wishlist/add`, `DELETE /wishlist/remove`, `GET /downloads`
+
+- [ ] `GET /account` - return the current user's profile
+  - Returns: `{ "id", "email", "first_name", "last_name", "avatar_url", "date_registered" }`
+- [ ] `PUT /account` - update profile (name, display name)
+  - Body: `{ "first_name": "...", "last_name": "..." }`
+  - Internally: `wp_update_user()`
+- [ ] `POST /account/change-password` - change password for logged-in user
+  - Body: `{ "current_password": "...", "new_password": "..." }`
+  - Validates current password before changing. Returns 422 if current password is wrong.
+- [ ] `GET /orders` - list all orders for the current customer
+  - Response: normalised `Order[]` - id, number, status, date, total, item count, tracking status
+  - Internally: `wc_get_orders([ 'customer' => get_current_user_id() ])`
+  - Uses HPOS-safe access via `StoreFuse_Bridge_WC_Compat::get_order()`
+  - Pagination: `per_page`, `page` params
+- [ ] `GET /orders/{id}` - full order detail
+  - Verify ownership via `StoreFuse_Bridge_Permissions::can_manage_order($id)` before returning - customer A must not read customer B orders
+  - Returns full normalised Order: items (with image, name, qty, subtotal), totals breakdown, billing/shipping address, payment method, tracking
+  - This is the order confirmation page and order history detail page data in one request
+- [ ] `POST /orders/{id}/cancel` - cancel a cancellable order
+  - Only allowed when order status is `pending` or `on-hold`
+  - Internally: `$order->update_status('cancelled')`
+- [ ] `GET /orders/{id}/tracking` - shipment tracking
+  - Returns carrier and tracking number if set (from order meta - compatible with Shipment Tracking plugin)
+  - Returns `{ "available": false }` if no tracking set yet
+- [ ] `GET /addresses` - return saved billing and shipping addresses
+- [ ] `PUT /addresses/billing` - update billing address
+  - Internally: `update_user_meta($user_id, 'billing_*', $value)` for each field
+- [ ] `PUT /addresses/shipping` - update shipping address
+- [ ] `GET /wishlist` - return saved wishlist items
+  - Stored in user meta as `storefuse_bridge_wishlist` (array of product IDs)
+  - Returns normalised product objects (not just IDs)
+  - Extension filter: `storefuse_bridge_wishlist_response` for WooCommerce Wishlist plugin compatibility
+- [ ] `POST /wishlist/add` - add product to wishlist
+  - Body: `{ "product_id": 123 }`
+- [ ] `DELETE /wishlist/remove` - remove from wishlist
+  - Body: `{ "product_id": 123 }`
+- [ ] `GET /downloads` - list digital product downloads for the current customer
+  - Internally: `wc_get_customer_available_downloads($user_id)`
+  - Returns: product name, download file name, download URL, expires_at, download count remaining
+- [ ] Extension filter: `storefuse_bridge_order_response` - for shipment tracking plugins, loyalty points, etc.
+
+**Deliverable**: Full logged-in customer experience. Orders, addresses, wishlist, downloads. Every endpoint returns a normalised StoreFuse type - never raw WooCommerce data.
+
+---
+
+## Phase 9: Checkout Module
 
 **Goal**: Implement both checkout modes so the store owner can choose from the admin settings page which experience their customers get. The Next.js storefront reads the chosen mode from the plugin and renders accordingly - no storefront code changes needed when switching modes.
 
@@ -471,7 +668,7 @@ Every section of the storefront home page is configurable here. No hardcoded con
 
 ---
 
-## Phase 8: Content Module
+## Phase 10: Content Module
 
 **Goal**: Product reviews, blog posts, and pages - all the content that lives in WordPress but needs to appear on the headless storefront.
 
@@ -494,7 +691,7 @@ Every section of the storefront home page is configurable here. No hardcoded con
 
 ---
 
-## Phase 9: Webhooks & ISR Support
+## Phase 11: Webhooks & ISR Support
 
 **Goal**: When a store owner saves a product, updates settings, or changes nav - the Next.js storefront's cache is automatically invalidated. No manual cache flushes needed.
 
@@ -513,7 +710,7 @@ Every section of the storefront home page is configurable here. No hardcoded con
 
 ---
 
-## Phase 10: Extensions & Third-Party Support
+## Phase 12: Extensions & Third-Party Support
 
 **Goal**: The plugin becomes a platform. Other plugins can extend it cleanly via WordPress hooks.
 
@@ -533,16 +730,18 @@ Every section of the storefront home page is configurable here. No hardcoded con
 
 | Version | Phases | Status | Description |
 |---|---|---|---|
-| v0.1.0 | 1 | Planned | Plugin shell, status endpoint, module system |
+| v0.1.0 | 1 | Planned | Plugin shell, status endpoint, module system, auth/session/permissions/format/errors classes |
 | v0.2.0 | 2 | Planned | Settings + navigation endpoints |
-| v0.3.0 | 3 | Planned | Admin settings page |
+| v0.3.0 | 3 | Planned | Admin settings pages |
 | v0.4.0 | 4 | Planned | Products + categories module |
 | v0.5.0 | 5 | Planned | Search module |
-| v0.6.0 | 6 | Planned | Cart module |
-| v0.7.0 | 7 | Planned | Checkout module |
-| v0.8.0 | 8 | Planned | Content module (reviews, blog) |
-| v0.9.0 | 9 | Planned | Webhooks + ISR revalidation |
-| v1.0.0 | 10 | Planned | Extensions (Yoast, WPML, ACF) + production-ready |
+| v0.6.0 | 6 | Planned | Cart module (session auth, guest cart) |
+| v0.7.0 | 7 | Planned | Auth module (login, register, forgot/reset password, guest cart merge) |
+| v0.8.0 | 8 | Planned | Customer APIs (orders, addresses, account, wishlist, downloads) |
+| v0.9.0 | 9 | Planned | Checkout module (redirect + headless modes) |
+| v0.10.0 | 10 | Planned | Content module (reviews, blog) |
+| v0.11.0 | 11 | Planned | Webhooks + ISR revalidation |
+| v1.0.0 | 12 | Planned | Extensions (Yoast, WPML, ACF) + production-ready |
 
 ---
 
@@ -559,6 +758,69 @@ Every section of the storefront home page is configurable here. No hardcoded con
 5. **Normalisation layer** - because WooCommerce internals are hidden behind the plugin's normalisation functions, WooCommerce can change storage format, field names, or DB schema without any impact on the StoreFuse frontend.
 
 6. **Schema identifiers on every response** - when the API evolves, the `schema` field tells the frontend exactly which version of a response shape it received, making forward-compatibility detection built in from day one.
+
+7. **StoreFuse type contracts** - every API resource has a named, stable shape (`Product`, `Order`, `Customer`, `Cart`, `Address`, `Review`, `Post`). These contracts live in `@storefuse/types`. The plugin returns them. The Next.js frontend consumes them. Any future client (React Native app, Flutter app, Vue storefront) consumes the same contracts. WooCommerce data maps into StoreFuse types inside the plugin - clients never see WooCommerce shapes. This is the foundation for an SDK, TypeScript generation, and eventual mobile app support.
+
+---
+
+## @storefuse/types - The Contract Layer
+
+This is the most important long-term architecture decision for the entire platform.
+
+Before building any endpoint, define the StoreFuse type contract for that resource. The contract is the source of truth. WooCommerce data maps into it. Every consumer (web, mobile, third-party) uses the same shape.
+
+### Core contracts
+
+```
+Product       - id, slug, name, price{raw,formatted}, images[], stock, seo, categories[], variants[]
+Category      - id, slug, name, description, image, count, parent
+Cart          - items[], totals{subtotal,shipping,tax,discount,total}, coupons[], shipping_methods[]
+Order         - id, number, status, date, items[], totals, payment{method,status}, tracking, addresses
+Customer      - id, email, first_name, last_name, avatar_url, date_registered
+Address       - first_name, last_name, company, address_1, address_2, city, state, postcode, country, phone
+Review        - id, product_id, author, rating, comment, date, verified
+Post          - id, slug, title, excerpt, content, date, image, categories[]
+SearchResult  - id, slug, name, price{formatted}, image, in_stock, categories[]
+```
+
+### Location in the monorepo
+
+```
+packages/
+  types/              (new package: @storefuse/types)
+    src/
+      product.ts
+      category.ts
+      cart.ts
+      order.ts
+      customer.ts
+      address.ts
+      review.ts
+      post.ts
+      search.ts
+      index.ts
+```
+
+### Why this matters
+
+- The bridge plugin PHP code normalises WooCommerce data into these shapes
+- The Next.js frontend imports and uses these TypeScript types
+- A React Native app uses the same types
+- When WooCommerce changes an internal data field, only the normalisation function inside the plugin changes - no frontend, no app, no other consumer changes
+- TypeScript types can be auto-generated as a client SDK in the future
+- The `schema` field in every API response (`"storefuse.product.v1"`) maps directly to a contract name
+
+### Migration strategy for existing frontend code
+
+The StoreFuse frontend currently uses WooCommerce APIs directly for products and categories. The correct migration path:
+
+1. Build the Bridge endpoint (`/storefuse/v1/products`)
+2. Define the `Product` type contract
+3. Build the normalisation function in PHP
+4. Switch the Next.js adapter to call the Bridge endpoint - the TypeScript type is already defined so the switch is a one-line URL change in `lib/adapter.ts`
+5. WooCommerce API calls disappear from the frontend one by one
+
+Do not switch everything at once. Switch one resource type per release.
 
 ---
 
@@ -631,6 +893,32 @@ Based on the architecture analysis, this is the correct order - each phase unblo
 | 7 | `/checkout` | Hardest - payment gateway integration per gateway |
 
 Do not start cart until products is solid. Do not start checkout until cart is stable.
+
+---
+
+## Design Boundaries
+
+These are explicit decisions about what this plugin will NOT become. They are documented here so future contributors have context for why certain feature requests should be declined.
+
+**No visual page builder**
+
+The Layout API block array (see future direction above) is the correct long-term path. But it is a data API, not a visual builder. StoreFuse Bridge does not become Elementor, Gutenberg, or a Shopify Sections replacement. The storefront renders blocks that WordPress defines. The visual editor, if one ever exists, lives in the admin settings pages - not in a Gutenberg-replacement canvas inside WordPress.
+
+**No GraphQL**
+
+REST is the correct choice for this system. The entire advantage of StoreFuse Bridge is opinionated, cacheable, storefront-optimised responses. GraphQL removes: HTTP-level caching (because everything is a POST), response shape guarantees (clients request arbitrary fields), and the ability to pre-aggregate data server-side. Every argument for GraphQL in this context is solved better by REST + well-designed endpoints. Do not add GraphQL support.
+
+**No plugin marketplace before core stability**
+
+The plugin needs: one stable storefront, one stable API, one stable checkout flow. That is the foundation. A plugin marketplace, paid extensions, or an "addon ecosystem" before v1.0 is stable would fragment developer attention and ship an unreliable platform. Extensions are documented (via WordPress filters), but no storefront for selling them should exist until the core is production-tested.
+
+**No direct database queries**
+
+All data access goes through WC functions and WordPress APIs. Never bypass them with `$wpdb` queries. WooCommerce has changed its storage layer (HPOS), and WordPress has changed post storage. The compatibility layer exists for this reason.
+
+**No jQuery dependency**
+
+Admin JS is vanilla JavaScript. No jQuery. This avoids loading jQuery on every admin page just for the plugin's settings page, and keeps the codebase maintainable as WordPress eventually deprecates its jQuery version.
 
 ---
 
