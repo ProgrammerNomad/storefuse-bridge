@@ -292,7 +292,7 @@ Homepage configuration: hero, featured categories, announcement bar.
       "cta_primary_href": "/shop",
       "cta_secondary_label": "New Arrivals",
       "cta_secondary_href": "/shop?sort=newest",
-      "image_url": "https://yourstore.com/wp-content/uploads/hero.jpg",
+      "image": { "url": "https://yourstore.com/wp-content/uploads/hero.jpg", "alt": "Festive Collection 2026", "width": 1920, "height": 800, "srcset": [] },
       "rating_text": "4.8/5 from 2,400+ reviews",
       "shipping_text": "Free shipping over ₹999"
     },
@@ -413,18 +413,16 @@ The `seo` field is populated by the active SEO plugin (Yoast, RankMath, etc.) vi
       "name": "Handcrafted Diya Set",
       "description": "<p>Full HTML product description.</p>",
       "short_description": "Set of 6 hand-painted clay diyas.",
-      "price": "₹499",
-      "price_raw": 499,
-      "regular_price": "₹699",
-      "regular_price_raw": 699,
-      "sale_price": "₹499",
+      "price":         { "raw": 499.00, "formatted": "Rs. 499.00", "currency": "INR", "symbol": "Rs." },
+      "regular_price": { "raw": 699.00, "formatted": "Rs. 699.00", "currency": "INR", "symbol": "Rs." },
+      "sale_price":    { "raw": 499.00, "formatted": "Rs. 499.00", "currency": "INR", "symbol": "Rs." },
       "on_sale": true,
       "sale_ends_at": "2026-05-20T23:59:59Z",
       "stock_status": "instock",
       "stock_quantity": 24,
       "sku": "DIYA-001",
       "images": [
-        { "id": "1", "src": "https://yourstore.com/wp-content/uploads/diya.jpg", "alt": "Diya Set" }
+        { "url": "https://yourstore.com/wp-content/uploads/diya.jpg", "alt": "Diya Set", "width": 1200, "height": 1200, "srcset": ["...@300w", "...@600w", "...@1200w"] }
       ],
       "categories": [
         { "id": "12", "name": "Festive Decor", "slug": "festive-decor" }
@@ -437,8 +435,7 @@ The `seo` field is populated by the active SEO plugin (Yoast, RankMath, etc.) vi
           "id": "124",
           "sku": "DIYA-001-L",
           "attributes": { "pa_size": "L" },
-          "price_raw": 499,
-          "price": "₹499",
+          "price": { "raw": 499.00, "formatted": "Rs. 499.00", "currency": "INR", "symbol": "Rs." },
           "stock_status": "instock",
           "stock_quantity": 8
         }
@@ -479,7 +476,7 @@ Full category tree with hierarchy.
       "name": "Festive Decor",
       "slug": "festive-decor",
       "description": "Handcrafted festive decoration pieces.",
-      "image_url": "https://yourstore.com/wp-content/uploads/festive.jpg",
+      "image": { "url": "https://yourstore.com/wp-content/uploads/festive.jpg", "alt": "Festive Decor", "width": 800, "height": 800, "srcset": [] },
       "product_count": 34,
       "parent": null,
       "children": [
@@ -631,29 +628,22 @@ Returns current cart. Issues a new cart nonce in the `X-WC-Nonce` response heade
       "variation_id": null,
       "name": "Handcrafted Diya Set",
       "quantity": 2,
-      "image_url": "https://yourstore.com/...",
-      "price": "₹499",
-      "price_raw": 499,
-      "line_subtotal": "₹998",
-      "line_subtotal_raw": 998
+      "image": { "url": "https://yourstore.com/...", "alt": "Handcrafted Diya Set", "width": 600, "height": 600, "srcset": [] },
+      "price":          { "raw": 499.00, "formatted": "Rs. 499.00", "currency": "INR", "symbol": "Rs." },
+      "line_subtotal":  { "raw": 998.00, "formatted": "Rs. 998.00", "currency": "INR", "symbol": "Rs." }
     }
   ],
   "totals": {
-    "subtotal": "₹998",
-    "subtotal_raw": 998,
-    "discount": "₹0",
-    "discount_raw": 0,
-    "shipping": "₹0",
-    "shipping_raw": 0,
-    "tax": "₹0",
-    "tax_raw": 0,
-    "total": "₹998",
-    "total_raw": 998
+    "subtotal":  { "raw": 998.00, "formatted": "Rs. 998.00",  "currency": "INR", "symbol": "Rs." },
+    "discount":  { "raw": 0,      "formatted": "Rs. 0.00",    "currency": "INR", "symbol": "Rs." },
+    "shipping":  { "raw": 0,      "formatted": "Rs. 0.00",    "currency": "INR", "symbol": "Rs." },
+    "tax":       { "raw": 0,      "formatted": "Rs. 0.00",    "currency": "INR", "symbol": "Rs." },
+    "total":     { "raw": 998.00, "formatted": "Rs. 998.00",  "currency": "INR", "symbol": "Rs." }
   },
   "coupons": [],
   "item_count": 2,
   "shipping_methods": [
-    { "id": "free_shipping", "label": "Free Shipping", "cost": "₹0" }
+    { "id": "free_shipping", "label": "Free Shipping", "cost": { "raw": 0, "formatted": "Rs. 0.00", "currency": "INR", "symbol": "Rs." } }
   ],
   "needs_payment": true
 }
@@ -956,7 +946,7 @@ Returns saved wishlist items as normalised product objects.
 ```json
 {
   "data": [
-    { "id": 56, "slug": "silk-dupatta", "name": "Silk Dupatta", "price": { "formatted": "Rs. 1,299.00" }, "image": "https://...", "in_stock": true }
+    { "id": 56, "slug": "silk-dupatta", "name": "Silk Dupatta", "price": { "raw": 1299.00, "formatted": "Rs. 1,299.00", "currency": "INR", "symbol": "Rs." }, "image": { "url": "https://...", "alt": "Silk Dupatta", "width": 600, "height": 600, "srcset": [] }, "in_stock": true }
   ]
 }
 ```
@@ -1024,8 +1014,8 @@ Returns available shipping rates for the given address.
 ```json
 {
   "shipping_methods": [
-    { "id": "free_shipping:1", "label": "Free Shipping", "cost": "₹0", "cost_raw": 0 },
-    { "id": "flat_rate:1", "label": "Standard Shipping", "cost": "₹99", "cost_raw": 99 }
+    { "id": "free_shipping:1", "label": "Free Shipping",    "cost": { "raw": 0,  "formatted": "Rs. 0.00",  "currency": "INR", "symbol": "Rs." } },
+    { "id": "flat_rate:1",    "label": "Standard Shipping", "cost": { "raw": 99, "formatted": "Rs. 99.00", "currency": "INR", "symbol": "Rs." } }
   ]
 }
 ```
@@ -1058,7 +1048,7 @@ Submit order. Requires `X-WC-Nonce` header.
   "order_key": "wc_order_abc123xyz",
   "order_number": "#456",
   "status": "processing",
-  "total": "₹998",
+  "total": { "raw": 998.00, "formatted": "Rs. 998.00", "currency": "INR", "symbol": "Rs." },
   "redirect_url": null,
   "payment_redirect_url": "https://yourstore.com/checkout/order-pay/456/?..."
 }
@@ -1074,8 +1064,12 @@ Order confirmation by order key (public - no login required).
   "order_number": "#456",
   "status": "processing",
   "date": "2026-05-18T14:30:00Z",
-  "items": [ { "name": "Handcrafted Diya Set", "quantity": 2, "subtotal": "₹998" } ],
-  "totals": { "subtotal": "₹998", "shipping": "₹0", "total": "₹998" },
+  "items": [ { "name": "Handcrafted Diya Set", "quantity": 2, "subtotal": { "raw": 998.00, "formatted": "Rs. 998.00", "currency": "INR", "symbol": "Rs." } } ],
+  "totals": {
+    "subtotal": { "raw": 998.00, "formatted": "Rs. 998.00", "currency": "INR", "symbol": "Rs." },
+    "shipping": { "raw": 0,      "formatted": "Rs. 0.00",   "currency": "INR", "symbol": "Rs." },
+    "total":    { "raw": 998.00, "formatted": "Rs. 998.00", "currency": "INR", "symbol": "Rs." }
+  },
   "billing": { "first_name": "Priya", "city": "Mumbai", "country": "IN" },
   "payment_method": "razorpay",
   "payment_method_title": "Razorpay"
@@ -1176,7 +1170,7 @@ Blog posts.
       "id": 77, "slug": "diwali-decorating-tips",
       "title": "5 Diwali Decorating Tips", "excerpt": "...",
       "date": "2026-10-01T00:00:00Z",
-      "image_url": "https://yourstore.com/wp-content/uploads/diwali.jpg",
+      "image": { "url": "https://yourstore.com/wp-content/uploads/diwali.jpg", "alt": "5 Diwali Decorating Tips", "width\": 1200, \"height\": 630, \"srcset\": [] },
       "categories": [{ "name": "Tips", "slug": "tips" }],
       "author": "Admin"
     }
@@ -1318,7 +1312,7 @@ GET /wp-json/storefuse/v1/settings
         "slug": "festive-decor",
         "href": "/category/festive-decor",
         "icon": "🪔",
-        "image_url": "https://yourstore.com/wp-content/uploads/festive-decor.jpg"
+        "image": { "url": "https://yourstore.com/wp-content/uploads/festive-decor.jpg", "alt": "Festive Decor", "width": 800, "height": 800, "srcset": [] }
       },
       {
         "id": 15,
