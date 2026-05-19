@@ -4,9 +4,9 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Settings Module
  *
- * GET /storefuse/v1/settings   — full site identity + store config + nav + social
- * GET /storefuse/v1/navigation — navigation menus only
- * GET /storefuse/v1/homepage   — homepage content block config
+ * GET /storefuse/v1/settings   - full site identity + store config + nav + social
+ * GET /storefuse/v1/navigation - navigation menus only
+ * GET /storefuse/v1/homepage   - homepage content block config
  *
  * All three endpoints are public and cached.
  * Cache is auto-invalidated by WC/WP save hooks registered in StoreFuse_Bridge_Cache.
@@ -150,11 +150,11 @@ class StoreFuse_Bridge_Module_Settings extends StoreFuse_Bridge_Module {
     }
 
     private function build_store_config(): array {
-        // Free shipping threshold — read from WC free shipping method settings
+        // Free shipping threshold - read from WC free shipping method settings
         $free_shipping_threshold = (float) StoreFuse_Bridge_Settings::get( 'free_shipping_threshold_amount', 0 );
         $free_shipping_label     = (string) StoreFuse_Bridge_Settings::get( 'free_shipping_threshold_label', '' );
 
-        // COD enabled — check active payment gateways
+        // COD enabled - check active payment gateways
         $cod_enabled = false;
         if ( WC()->payment_gateways() ) {
             $gateways    = WC()->payment_gateways()->get_available_payment_gateways();

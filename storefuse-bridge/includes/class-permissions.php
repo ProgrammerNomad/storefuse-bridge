@@ -44,7 +44,7 @@ class StoreFuse_Bridge_Permissions {
 
     /**
      * Check the logged-in user owns a given order.
-     * Called inside the order callback — not as a permission_callback, because
+     * Called inside the order callback - not as a permission_callback, because
      * we need the order ID from the URL parameter.
      */
     public static function can_manage_order( int $order_id ): bool {

@@ -23,7 +23,7 @@ class StoreFuse_Bridge_Session {
      *
      * Problem this solves: A customer adds items as a guest, then logs in.
      * Without merge logic the guest session is destroyed and the cart appears empty
-     * — the customer sees their items disappear and abandons the purchase.
+     * - the customer sees their items disappear and abandons the purchase.
      *
      * WooCommerce handles the session migration internally; we ensure totals are
      * recalculated and fire an action so third-party plugins can react.

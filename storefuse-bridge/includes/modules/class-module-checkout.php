@@ -58,8 +58,9 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
             ],
         ] );
 
-        // Order confirmation — order key acts as a public access token.
-        register_rest_route( $this->namespace, '/orders/(?P<key>[a-zA-Z0-9_]+)', [
+        // Order confirmation - order key acts as a public access token.
+        // Pattern requires a non-numeric prefix so pure numeric IDs route to the Orders module instead.
+        register_rest_route( $this->namespace, '/orders/(?P<key>wc_order_[a-zA-Z0-9]+)', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ $this, 'get_order_by_key' ],
             'permission_callback' => '__return_true',
@@ -364,11 +365,11 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         }
 
         return StoreFuse_Bridge_Response::with_no_store(
-            $this->success( $this->format_order( $order ), 'storefuse.order.v1' )
+            $this->success( StoreFuse_Bridge_Format::order( $order ), 'storefuse.order.v1' )
         );
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    // ── Helpers 
 
     /**
      * Validate the X-WC-Nonce header on checkout write operations.
@@ -497,6 +498,8 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
     /**
      * Normalise WC checkout fields array into the StoreFuse field shape.
      */
+    // format_order and format_order_address are now in StoreFuse_Bridge_Format (shared with Orders module).
+
     private function format_fields( array $wc_fields ): array {
         $result = [];
 
@@ -521,7 +524,7 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
     }
 
     /**
-     * Normalise a WC order into the StoreFuse order shape.
+     * @deprecated Delegated to StoreFuse_Bridge_Format::order(). Kept for safety; remove in next cleanup.
      */
     private function format_order( WC_Abstract_Order $order ): array {
         $line_items = [];

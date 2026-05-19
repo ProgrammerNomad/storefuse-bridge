@@ -143,7 +143,7 @@ class StoreFuse_Bridge_Module_Categories extends StoreFuse_Bridge_Module {
         );
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Helpers ─
 
     private function build_category_breadcrumb( WP_Term $term ): array {
         $ancestors = [];

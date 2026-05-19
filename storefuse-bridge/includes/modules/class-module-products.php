@@ -193,7 +193,7 @@ class StoreFuse_Bridge_Module_Products extends StoreFuse_Bridge_Module {
         );
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Helpers ─
 
     private function build_query_args( array $params, int $per_page, int $page ): array {
 

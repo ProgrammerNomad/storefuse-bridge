@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-// ── Constants ────────────────────────────────────────────────────────────────
+// ── Constants ───
 
 define( 'STOREFUSE_BRIDGE_VERSION',  '0.1.0' );
 define( 'STOREFUSE_BRIDGE_PATH',     plugin_dir_path( __FILE__ ) );
@@ -28,7 +28,7 @@ define( 'STOREFUSE_BRIDGE_MIN_WP',   '6.0' );
 define( 'STOREFUSE_BRIDGE_MIN_WC',   '7.0' );
 define( 'STOREFUSE_BRIDGE_MIN_PHP',  '8.0' );
 
-// ── Autoloader ───────────────────────────────────────────────────────────────
+// ── Autoloader ─
 
 spl_autoload_register( function ( string $class ): void {
     // Only handle StoreFuse_Bridge_* classes
@@ -107,7 +107,7 @@ add_action( 'admin_notices', function (): void {
     echo '</p></div>';
 } );
 
-// ── Bootstrap ────────────────────────────────────────────────────────────────
+// ── Bootstrap ───
 
 add_action( 'plugins_loaded', function (): void {
     if ( ! class_exists( 'WooCommerce' ) ) {

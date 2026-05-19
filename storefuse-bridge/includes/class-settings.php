@@ -2,7 +2,7 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Plugin settings — thin wrapper around wp_options.
+ * Plugin settings - thin wrapper around wp_options.
  *
  * All plugin-managed settings live under the 'storefuse_bridge_settings' option key
  * as a single serialised array. Module enabled/disabled flags use the same key.

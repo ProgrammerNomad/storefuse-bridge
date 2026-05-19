@@ -300,7 +300,7 @@ class StoreFuse_Bridge_Module_Cart extends StoreFuse_Bridge_Module {
         return $this->cart_response();
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    // ── Helpers 
 
     /**
      * Validate the X-WC-Nonce header on cart write operations.

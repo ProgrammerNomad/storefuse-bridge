@@ -5,7 +5,7 @@ defined( 'ABSPATH' ) || exit;
  * WooCommerce version and feature compatibility detection.
  *
  * The storefront reads the 'features' map from GET /status to decide
- * runtime behaviour — no hardcoded capability checks in the frontend.
+ * runtime behaviour - no hardcoded capability checks in the frontend.
  */
 class StoreFuse_Bridge_WC_Compat {
 

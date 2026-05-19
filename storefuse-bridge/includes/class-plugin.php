@@ -2,7 +2,7 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * StoreFuse Bridge — Main Plugin Class
+ * StoreFuse Bridge - Main Plugin Class
  *
  * Bootstraps all modules and registers the REST namespace.
  */
@@ -39,7 +39,7 @@ final class StoreFuse_Bridge {
         );
     }
 
-    // ── Modules ──────────────────────────────────────────────────────────────
+    // ── Modules 
 
     private function load_modules(): void {
         $this->modules = [
@@ -48,9 +48,19 @@ final class StoreFuse_Bridge {
             new StoreFuse_Bridge_Module_Products(),
             new StoreFuse_Bridge_Module_Categories(),
             new StoreFuse_Bridge_Module_Search(),
+            new StoreFuse_Bridge_Module_Attributes(),
+            new StoreFuse_Bridge_Module_Tags(),
             new StoreFuse_Bridge_Module_Auth(),
             new StoreFuse_Bridge_Module_Cart(),
             new StoreFuse_Bridge_Module_Checkout(),
+            new StoreFuse_Bridge_Module_Account(),
+            new StoreFuse_Bridge_Module_Orders(),
+            new StoreFuse_Bridge_Module_Addresses(),
+            new StoreFuse_Bridge_Module_Wishlist(),
+            new StoreFuse_Bridge_Module_Reviews(),
+            new StoreFuse_Bridge_Module_Posts(),
+            new StoreFuse_Bridge_Module_Utils(),
+            new StoreFuse_Bridge_Module_Downloads(),
         ];
 
         foreach ( $this->modules as $module ) {
@@ -60,7 +70,7 @@ final class StoreFuse_Bridge {
         }
     }
 
-    // ── Hooks ────────────────────────────────────────────────────────────────
+    // ── Hooks ───
 
     private function register_hooks(): void {
         // Admin

@@ -290,7 +290,7 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
         return StoreFuse_Bridge_Response::with_no_store( $response );
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    // ── Helpers 
 
     /**
      * Build the standard auth success response with required headers.

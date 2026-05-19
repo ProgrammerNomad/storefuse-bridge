@@ -9,7 +9,7 @@ defined( 'ABSPATH' ) || exit;
  */
 class StoreFuse_Bridge_Format {
 
-    // ── Price ────────────────────────────────────────────────────────────────
+    // ── Price ───
 
     /**
      * Format a monetary value into the canonical price shape.
@@ -27,7 +27,7 @@ class StoreFuse_Bridge_Format {
         ];
     }
 
-    // ── Image ────────────────────────────────────────────────────────────────
+    // ── Image ───
 
     /**
      * Format a WordPress attachment into the canonical image shape.
@@ -61,7 +61,7 @@ class StoreFuse_Bridge_Format {
         ];
     }
 
-    // ── Date ─────────────────────────────────────────────────────────────────
+    // ── Date ────
 
     /**
      * Convert a WordPress date string to ISO 8601 / RFC 3339.
@@ -78,7 +78,7 @@ class StoreFuse_Bridge_Format {
         }
     }
 
-    // ── Product ──────────────────────────────────────────────────────────────
+    // ── Product 
 
     /**
      * Normalise a WC_Product into the StoreFuse product shape.
@@ -210,6 +210,122 @@ class StoreFuse_Bridge_Format {
             'image'         => self::image( $thumbnail_id ?: null ),
             'product_count' => (int) $term->count,
             'parent'        => $term->parent ? (string) $term->parent : null,
+        ];
+    }
+
+    // ── Order ───
+
+    /**
+     * Normalise a WC order into the full StoreFuse order shape.
+     * Used by the Checkout (order confirmation) and Orders (account history) modules.
+     */
+    public static function order( WC_Abstract_Order $order ): array {
+        $line_items = [];
+
+        foreach ( $order->get_items() as $item ) {
+            /** @var WC_Order_Item_Product $item */
+            $product_id   = $item->get_product_id();
+            $product      = $item->get_product();
+            $product_slug = get_post_field( 'post_name', $product_id );
+            $thumbnail    = ( $product instanceof WC_Product )
+                ? self::image( (int) $product->get_image_id() )
+                : null;
+
+            $line_items[] = [
+                'name'     => $item->get_name(),
+                'quantity' => $item->get_quantity(),
+                'subtotal' => self::price( (float) $item->get_subtotal() ),
+                'total'    => self::price( (float) $item->get_total() ),
+                'product'  => [
+                    'id'        => $product_id,
+                    'slug'      => $product_slug,
+                    'href'      => $product_slug ? '/product/' . $product_slug : '',
+                    'thumbnail' => $thumbnail,
+                ],
+            ];
+        }
+
+        return apply_filters( 'storefuse_bridge_order_data', [
+            'id'                   => $order->get_id(),
+            'number'               => $order->get_order_number(),
+            'key'                  => $order->get_order_key(),
+            'status'               => $order->get_status(),
+            'date_created'         => self::date(
+                $order->get_date_created()
+                    ? $order->get_date_created()->date( 'Y-m-d H:i:s' )
+                    : ''
+            ),
+            'currency'             => $order->get_currency(),
+            'billing'              => self::order_address( $order, 'billing' ),
+            'shipping'             => self::order_address( $order, 'shipping' ),
+            'items'                => $line_items,
+            'totals'               => [
+                'subtotal' => self::price( (float) $order->get_subtotal() ),
+                'discount' => self::price( (float) $order->get_discount_total() ),
+                'shipping' => self::price( (float) $order->get_shipping_total() ),
+                'tax'      => self::price( (float) $order->get_total_tax() ),
+                'total'    => self::price( (float) $order->get_total( 'edit' ) ),
+            ],
+            'payment_method'       => $order->get_payment_method(),
+            'payment_method_title' => $order->get_payment_method_title(),
+            'customer_note'        => $order->get_customer_note(),
+            'is_paid'              => $order->is_paid(),
+        ], $order );
+    }
+
+    /**
+     * Normalise billing or shipping address from a WC order.
+     *
+     * @param string $type 'billing'|'shipping'
+     */
+    public static function order_address( WC_Abstract_Order $order, string $type ): array {
+        if ( $type === 'billing' ) {
+            return [
+                'first_name' => $order->get_billing_first_name(),
+                'last_name'  => $order->get_billing_last_name(),
+                'company'    => $order->get_billing_company(),
+                'address_1'  => $order->get_billing_address_1(),
+                'address_2'  => $order->get_billing_address_2(),
+                'city'       => $order->get_billing_city(),
+                'state'      => $order->get_billing_state(),
+                'postcode'   => $order->get_billing_postcode(),
+                'country'    => $order->get_billing_country(),
+                'email'      => $order->get_billing_email(),
+                'phone'      => $order->get_billing_phone(),
+            ];
+        }
+
+        return [
+            'first_name' => $order->get_shipping_first_name(),
+            'last_name'  => $order->get_shipping_last_name(),
+            'company'    => $order->get_shipping_company(),
+            'address_1'  => $order->get_shipping_address_1(),
+            'address_2'  => $order->get_shipping_address_2(),
+            'city'       => $order->get_shipping_city(),
+            'state'      => $order->get_shipping_state(),
+            'postcode'   => $order->get_shipping_postcode(),
+            'country'    => $order->get_shipping_country(),
+            'email'      => '',
+            'phone'      => '',
+        ];
+    }
+
+    /**
+     * Compact order shape for list views (order history page).
+     */
+    public static function order_summary( WC_Abstract_Order $order ): array {
+        return [
+            'id'           => $order->get_id(),
+            'number'       => $order->get_order_number(),
+            'status'       => $order->get_status(),
+            'date_created' => self::date(
+                $order->get_date_created()
+                    ? $order->get_date_created()->date( 'Y-m-d H:i:s' )
+                    : ''
+            ),
+            'total'        => self::price( (float) $order->get_total( 'edit' ) ),
+            'item_count'   => $order->get_item_count(),
+            'billing_name' => trim( $order->get_billing_first_name() . ' ' . $order->get_billing_last_name() ),
         ];
     }
 }

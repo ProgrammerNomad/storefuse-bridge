@@ -11,7 +11,7 @@ abstract class StoreFuse_Bridge_Module {
     protected string $namespace = 'storefuse/v1';
 
     /**
-     * Module identifier — used to check enabled/disabled state in settings.
+     * Module identifier - used to check enabled/disabled state in settings.
      * Subclasses should override this (e.g. 'products', 'cart').
      */
     protected string $id = '';

@@ -11,7 +11,7 @@ class StoreFuse_Bridge_Auth {
 
     /**
      * Permission callback for public endpoints (products, categories, search, settings).
-     * Always returns true — no auth required.
+     * Always returns true - no auth required.
      */
     public static function public_permission(): bool {
         return true;
@@ -54,7 +54,7 @@ class StoreFuse_Bridge_Auth {
         return true;
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    // ── Helpers 
 
     /**
      * Validate the nonce sent in the X-WC-Nonce header.

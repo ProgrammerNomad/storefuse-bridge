@@ -20,7 +20,7 @@ defined( 'ABSPATH' ) || exit;
  */
 class StoreFuse_Bridge_Errors {
 
-    // ── Factory ──────────────────────────────────────────────────────────────
+    // ── Factory 
 
     private static function make( string $code, string $message, int $status ): WP_REST_Response {
         return new WP_REST_Response(

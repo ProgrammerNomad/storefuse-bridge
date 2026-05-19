@@ -2,7 +2,7 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Status Module — GET /storefuse/v1/status
+ * Status Module - GET /storefuse/v1/status
  *
  * Health check. Confirms the plugin is active, lists enabled modules,
  * and exposes a feature capability map so the storefront can adapt

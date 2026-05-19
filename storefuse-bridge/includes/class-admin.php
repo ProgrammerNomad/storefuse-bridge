@@ -16,7 +16,7 @@ class StoreFuse_Bridge_Admin {
         add_action( 'wp_ajax_storefuse_bridge_flush_cache', [ $this, 'ajax_flush_cache' ] );
     }
 
-    // ── Menus ─────────────────────────────────────────────────────────────────
+    // ── Menus ────
 
     public function register_menus(): void {
         // Top-level menu item
@@ -137,7 +137,7 @@ class StoreFuse_Bridge_Admin {
         return $clean;
     }
 
-    // ── Assets ────────────────────────────────────────────────────────────────
+    // ── Assets ───
 
     public function enqueue_assets( string $hook ): void {
         // Only load on our admin pages
