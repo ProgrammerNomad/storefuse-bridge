@@ -115,3 +115,28 @@ add_action( 'plugins_loaded', function (): void {
     }
     StoreFuse_Bridge::instance()->init();
 } );
+
+// ── Storefront integrations ───────────────────────────────────────────────────
+
+/**
+ * Redirect password reset emails to the storefront /reset-password page
+ * instead of the WordPress login page.
+ *
+ * The storefront URL is stored in the StoreFuse Bridge settings as
+ * `storefuse_storefront_url`.
+ */
+add_filter( 'storefuse_bridge_password_reset_url', function ( string $wp_url, WP_User $user, string $key ): string {
+    $storefront_url = rtrim( (string) get_option( 'storefuse_storefront_url', '' ), '/' );
+
+    if ( ! $storefront_url ) {
+        return $wp_url;
+    }
+
+    return add_query_arg(
+        [
+            'key'   => rawurlencode( $key ),
+            'login' => rawurlencode( $user->user_login ),
+        ],
+        $storefront_url . '/reset-password'
+    );
+}, 10, 3 );
