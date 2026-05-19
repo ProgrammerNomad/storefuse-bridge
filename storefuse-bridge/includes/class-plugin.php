@@ -45,6 +45,12 @@ final class StoreFuse_Bridge {
         $this->modules = [
             new StoreFuse_Bridge_Module_Status(),
             new StoreFuse_Bridge_Module_Settings(),
+            new StoreFuse_Bridge_Module_Products(),
+            new StoreFuse_Bridge_Module_Categories(),
+            new StoreFuse_Bridge_Module_Search(),
+            new StoreFuse_Bridge_Module_Auth(),
+            new StoreFuse_Bridge_Module_Cart(),
+            new StoreFuse_Bridge_Module_Checkout(),
         ];
 
         foreach ( $this->modules as $module ) {
@@ -87,5 +93,4 @@ final class StoreFuse_Bridge {
             }
         } );
     }
-}
 }
