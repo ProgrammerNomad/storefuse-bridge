@@ -60,11 +60,29 @@ class StoreFuse_Bridge_Admin {
 
         add_submenu_page(
             'storefuse-bridge',
+            __( 'StoreFuse - Navigation', 'storefuse-bridge' ),
+            __( 'Navigation', 'storefuse-bridge' ),
+            'manage_woocommerce',
+            'storefuse-bridge-navigation',
+            [ $this, 'page_navigation' ]
+        );
+
+        add_submenu_page(
+            'storefuse-bridge',
             __( 'StoreFuse - Social & Trust', 'storefuse-bridge' ),
             __( 'Social & Trust', 'storefuse-bridge' ),
             'manage_woocommerce',
             'storefuse-bridge-social',
             [ $this, 'page_social' ]
+        );
+
+        add_submenu_page(
+            'storefuse-bridge',
+            __( 'StoreFuse - Checkout', 'storefuse-bridge' ),
+            __( 'Checkout', 'storefuse-bridge' ),
+            'manage_woocommerce',
+            'storefuse-bridge-checkout',
+            [ $this, 'page_checkout' ]
         );
 
         add_submenu_page(
@@ -130,6 +148,18 @@ class StoreFuse_Bridge_Admin {
         foreach ( [ 'products', 'categories', 'search', 'cart', 'checkout', 'content', 'webhooks' ] as $mod ) {
             $clean[ "module_{$mod}_enabled" ] = ! empty( $input[ "module_{$mod}_enabled" ] );
         }
+
+        // Checkout mode
+        $valid_modes                    = [ 'redirect', 'headless' ];
+        $clean['checkout_mode']         = in_array( $input['checkout_mode'] ?? 'redirect', $valid_modes, true )
+            ? $input['checkout_mode']
+            : 'redirect';
+        $clean['checkout_redirect_label']  = sanitize_text_field( $input['checkout_redirect_label'] ?? '' );
+        $clean['checkout_page_url']        = esc_url_raw( $input['checkout_page_url'] ?? '' );
+
+        // Storefront connection (for webhooks / ISR)
+        $clean['storefront_url']        = esc_url_raw( $input['storefront_url'] ?? '' );
+        $clean['revalidation_secret']   = sanitize_text_field( $input['revalidation_secret'] ?? '' );
 
         // Flush cache whenever settings are saved
         StoreFuse_Bridge_Cache::flush_all();
@@ -200,6 +230,14 @@ class StoreFuse_Bridge_Admin {
 
     public function page_social(): void {
         require_once STOREFUSE_BRIDGE_PATH . 'admin/views/page-social.php';
+    }
+
+    public function page_navigation(): void {
+        require_once STOREFUSE_BRIDGE_PATH . 'admin/views/page-navigation.php';
+    }
+
+    public function page_checkout(): void {
+        require_once STOREFUSE_BRIDGE_PATH . 'admin/views/page-checkout.php';
     }
 
     public function page_advanced(): void {

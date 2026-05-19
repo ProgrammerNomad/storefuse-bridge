@@ -24,7 +24,7 @@ class StoreFuse_Bridge_Module_Orders extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/orders', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ $this, 'get_orders' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login' ],
             'args'                => [
                 'page'     => [ 'required' => false, 'type' => 'integer', 'default' => 1,   'minimum' => 1 ],
                 'per_page' => [ 'required' => false, 'type' => 'integer', 'default' => 10,  'minimum' => 1, 'maximum' => 50 ],
@@ -36,25 +36,25 @@ class StoreFuse_Bridge_Module_Orders extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/orders/(?P<id>\d+)', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ $this, 'get_order' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login' ],
         ] );
 
         register_rest_route( $this->namespace, '/orders/(?P<id>\d+)/cancel', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ $this, 'cancel_order' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login_and_nonce' ],
         ] );
 
         register_rest_route( $this->namespace, '/orders/(?P<id>\d+)/reorder', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ $this, 'reorder' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login' ],
         ] );
 
         register_rest_route( $this->namespace, '/orders/(?P<id>\d+)/return-request', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ $this, 'return_request' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login_and_nonce' ],
             'args'                => [
                 'reason' => [ 'required' => false, 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_textarea_field' ],
             ],
@@ -63,7 +63,13 @@ class StoreFuse_Bridge_Module_Orders extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/orders/(?P<id>\d+)/tracking', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ $this, 'get_tracking' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login' ],
+        ] );
+
+        register_rest_route( $this->namespace, '/orders/(?P<id>\d+)/invoice', [
+            'methods'             => WP_REST_Server::READABLE,
+            'callback'            => [ $this, 'get_invoice' ],
+            'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login' ],
         ] );
     }
 
@@ -277,6 +283,67 @@ class StoreFuse_Bridge_Module_Orders extends StoreFuse_Bridge_Module {
 
         return StoreFuse_Bridge_Response::with_no_store(
             $this->success( $tracking, 'storefuse.orders.v1' )
+        );
+    }
+
+    /**
+     * GET /orders/{id}/invoice
+     *
+     * Returns a structured invoice for the order: items, totals, billing/shipping address.
+     * Includes a print_url pointing to the native WooCommerce view-order page as fallback.
+     * PDF invoice plugins can override print_url via the storefuse_bridge_invoice_print_url filter.
+     */
+    public function get_invoice( WP_REST_Request $request ): WP_REST_Response {
+        if ( ! is_user_logged_in() ) {
+            return StoreFuse_Bridge_Errors::not_authenticated();
+        }
+
+        $order = $this->resolve_order( (int) $request->get_param( 'id' ) );
+        if ( $order instanceof WP_REST_Response ) {
+            return $order;
+        }
+
+        $items = [];
+        foreach ( $order->get_items() as $item ) {
+            /** @var WC_Order_Item_Product $item */
+            $product = $item->get_product();
+            $items[] = [
+                'name'     => $item->get_name(),
+                'sku'      => $product ? $product->get_sku() : '',
+                'quantity' => $item->get_quantity(),
+                'subtotal' => StoreFuse_Bridge_Format::price( (float) $item->get_subtotal() ),
+                'total'    => StoreFuse_Bridge_Format::price( (float) $item->get_total() ),
+            ];
+        }
+
+        $date_created = $order->get_date_created();
+
+        $invoice = apply_filters( 'storefuse_bridge_order_invoice', [
+            'invoice_number' => 'INV-' . $order->get_order_number(),
+            'order_number'   => $order->get_order_number(),
+            'order_status'   => $order->get_status(),
+            'date_issued'    => $date_created ? StoreFuse_Bridge_Format::date( $date_created->format( 'Y-m-d H:i:s' ) ) : null,
+            'billing_to'     => StoreFuse_Bridge_Format::order_address( $order, 'billing' ),
+            'shipping_to'    => StoreFuse_Bridge_Format::order_address( $order, 'shipping' ),
+            'items'          => $items,
+            'totals'         => [
+                'subtotal' => StoreFuse_Bridge_Format::price( (float) $order->get_subtotal() ),
+                'shipping' => StoreFuse_Bridge_Format::price( (float) $order->get_shipping_total() ),
+                'tax'      => StoreFuse_Bridge_Format::price( (float) $order->get_total_tax() ),
+                'discount' => StoreFuse_Bridge_Format::price( (float) $order->get_total_discount() ),
+                'total'    => StoreFuse_Bridge_Format::price( (float) $order->get_total() ),
+            ],
+            'payment_method' => $order->get_payment_method_title(),
+            'customer_note'  => $order->get_customer_note(),
+            'print_url'      => apply_filters(
+                'storefuse_bridge_invoice_print_url',
+                wc_get_endpoint_url( 'view-order', (string) $order->get_id(), wc_get_account_endpoint_url( 'orders' ) ),
+                $order
+            ),
+        ], $order );
+
+        return StoreFuse_Bridge_Response::with_no_store(
+            $this->success( $invoice, 'storefuse.order.v1' )
         );
     }
 

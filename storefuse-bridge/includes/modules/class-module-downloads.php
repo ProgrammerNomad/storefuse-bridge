@@ -16,7 +16,7 @@ class StoreFuse_Bridge_Module_Downloads extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/downloads', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ $this, 'get_downloads' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login' ],
         ] );
     }
 

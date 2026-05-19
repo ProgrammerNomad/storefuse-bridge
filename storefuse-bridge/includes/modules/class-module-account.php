@@ -22,12 +22,12 @@ class StoreFuse_Bridge_Module_Account extends StoreFuse_Bridge_Module {
             [
                 'methods'             => WP_REST_Server::READABLE,
                 'callback'            => [ $this, 'get_account' ],
-                'permission_callback' => '__return_true',
+                'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login' ],
             ],
             [
                 'methods'             => WP_REST_Server::EDITABLE,
                 'callback'            => [ $this, 'update_account' ],
-                'permission_callback' => '__return_true',
+                'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login_and_nonce' ],
                 'args'                => [
                     'first_name'   => [ 'required' => false, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
                     'last_name'    => [ 'required' => false, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
@@ -39,7 +39,7 @@ class StoreFuse_Bridge_Module_Account extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/account/change-password', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ $this, 'change_password' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login_and_nonce' ],
             'args'                => [
                 'current_password' => [ 'required' => true, 'type' => 'string' ],
                 'new_password'     => [ 'required' => true, 'type' => 'string' ],

@@ -23,13 +23,13 @@ class StoreFuse_Bridge_Module_Wishlist extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/wishlist', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ $this, 'get_wishlist' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login' ],
         ] );
 
         register_rest_route( $this->namespace, '/wishlist/add', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ $this, 'add_to_wishlist' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login_and_nonce' ],
             'args'                => [
                 'product_id' => [ 'required' => true, 'type' => 'integer', 'minimum' => 1 ],
             ],
@@ -38,7 +38,7 @@ class StoreFuse_Bridge_Module_Wishlist extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/wishlist/remove', [
             'methods'             => WP_REST_Server::DELETABLE,
             'callback'            => [ $this, 'remove_from_wishlist' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login_and_nonce' ],
             'args'                => [
                 'product_id' => [ 'required' => true, 'type' => 'integer', 'minimum' => 1 ],
             ],

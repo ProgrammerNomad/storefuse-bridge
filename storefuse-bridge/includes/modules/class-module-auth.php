@@ -76,7 +76,7 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/auth/logout', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ $this, 'logout' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Auth', 'auth_write_permission' ],
         ] );
 
         register_rest_route( $this->namespace, '/auth/me', [

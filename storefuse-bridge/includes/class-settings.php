@@ -109,6 +109,15 @@ class StoreFuse_Bridge_Settings {
             'module_checkout_enabled'   => true,
             'module_content_enabled'    => true,
             'module_webhooks_enabled'   => false,
+
+            // Checkout
+            'checkout_mode'            => 'redirect',
+            'checkout_redirect_label'  => 'Proceed to Checkout',
+            'checkout_page_url'        => '',
+
+            // Storefront connection (for webhooks / ISR)
+            'storefront_url'           => '',
+            'revalidation_secret'      => '',
         ];
     }
 }

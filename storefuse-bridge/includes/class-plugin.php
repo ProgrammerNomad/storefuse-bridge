@@ -61,6 +61,7 @@ final class StoreFuse_Bridge {
             new StoreFuse_Bridge_Module_Posts(),
             new StoreFuse_Bridge_Module_Utils(),
             new StoreFuse_Bridge_Module_Downloads(),
+            new StoreFuse_Bridge_Module_Webhooks(),
         ];
 
         foreach ( $this->modules as $module ) {

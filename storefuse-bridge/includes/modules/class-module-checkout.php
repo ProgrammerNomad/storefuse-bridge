@@ -47,7 +47,7 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/checkout', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ $this, 'process_checkout' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Auth', 'checkout_permission' ],
             'args'                => [
                 'billing'                   => [ 'required' => true,  'type' => 'object' ],
                 'shipping'                  => [ 'required' => false, 'type' => 'object',  'default' => [] ],
@@ -56,6 +56,14 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
                 'shipping_method'           => [ 'required' => false, 'type' => 'array',   'default' => [] ],
                 'order_notes'               => [ 'required' => false, 'type' => 'string',  'default' => '', 'sanitize_callback' => 'sanitize_textarea_field' ],
             ],
+        ] );
+
+        // Redirect mode: return the native WooCommerce checkout URL for the current cart.
+        // No nonce required - no state is changed, just a URL is returned.
+        register_rest_route( $this->namespace, '/checkout/redirect-url', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [ $this, 'get_redirect_url' ],
+            'permission_callback' => '__return_true',
         ] );
 
         // Order confirmation - order key acts as a public access token.
@@ -328,6 +336,27 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         ], $order );
 
         return StoreFuse_Bridge_Response::with_no_store( $this->success( $data, 'storefuse.checkout.v1' ) );
+    }
+
+    /**
+     * POST /checkout/redirect-url
+     *
+     * Redirect checkout mode: returns the WooCommerce checkout URL for the current cart.
+     * The storefront redirects the user to this URL; WooCommerce handles everything from here.
+     * No nonce required - this is a read-only URL lookup, no state is changed.
+     */
+    public function get_redirect_url( WP_REST_Request $request ): WP_REST_Response {
+        $this->ensure_cart();
+
+        if ( WC()->cart->is_empty() ) {
+            return StoreFuse_Bridge_Errors::validation_error( 'Your cart is empty.' );
+        }
+
+        $checkout_url = apply_filters( 'storefuse_bridge_checkout_redirect_url', wc_get_checkout_url() );
+
+        return StoreFuse_Bridge_Response::with_no_store(
+            $this->success( [ 'redirect_url' => esc_url_raw( $checkout_url ) ], 'storefuse.checkout.v1' )
+        );
     }
 
     /**

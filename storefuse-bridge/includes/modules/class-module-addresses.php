@@ -18,20 +18,20 @@ class StoreFuse_Bridge_Module_Addresses extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/addresses', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ $this, 'get_addresses' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login' ],
         ] );
 
         register_rest_route( $this->namespace, '/addresses/billing', [
             'methods'             => WP_REST_Server::EDITABLE,
             'callback'            => [ $this, 'update_billing' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login_and_nonce' ],
             'args'                => $this->address_args( true ),
         ] );
 
         register_rest_route( $this->namespace, '/addresses/shipping', [
             'methods'             => WP_REST_Server::EDITABLE,
             'callback'            => [ $this, 'update_shipping' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login_and_nonce' ],
             'args'                => $this->address_args( false ),
         ] );
     }

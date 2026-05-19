@@ -31,7 +31,7 @@ class StoreFuse_Bridge_Module_Cart extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/cart/add', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ $this, 'add_item' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Auth', 'cart_permission' ],
             'args'                => [
                 'product_id'   => [
                     'required'          => true,
@@ -61,7 +61,7 @@ class StoreFuse_Bridge_Module_Cart extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/cart/update', [
             'methods'             => WP_REST_Server::EDITABLE,
             'callback'            => [ $this, 'update_item' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Auth', 'cart_permission' ],
             'args'                => [
                 'cart_item_key' => [
                     'required'          => true,
@@ -79,7 +79,7 @@ class StoreFuse_Bridge_Module_Cart extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/cart/remove', [
             'methods'             => WP_REST_Server::DELETABLE,
             'callback'            => [ $this, 'remove_item' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Auth', 'cart_permission' ],
             'args'                => [
                 'cart_item_key' => [
                     'required'          => true,
@@ -94,7 +94,7 @@ class StoreFuse_Bridge_Module_Cart extends StoreFuse_Bridge_Module {
             [
                 'methods'             => WP_REST_Server::CREATABLE,
                 'callback'            => [ $this, 'apply_coupon' ],
-                'permission_callback' => '__return_true',
+                'permission_callback' => [ 'StoreFuse_Bridge_Auth', 'cart_permission' ],
                 'args'                => [
                     'code' => [
                         'required'          => true,
@@ -106,7 +106,7 @@ class StoreFuse_Bridge_Module_Cart extends StoreFuse_Bridge_Module {
             [
                 'methods'             => WP_REST_Server::DELETABLE,
                 'callback'            => [ $this, 'remove_coupon' ],
-                'permission_callback' => '__return_true',
+                'permission_callback' => [ 'StoreFuse_Bridge_Auth', 'cart_permission' ],
                 'args'                => [
                     'code' => [
                         'required'          => true,
