@@ -118,14 +118,22 @@ class StoreFuse_Bridge_Module_Webhooks extends StoreFuse_Bridge_Module {
         }
 
         $endpoint = trailingslashit( esc_url_raw( $storefront_url ) ) . 'api/revalidate';
-        $payload  = wp_json_encode( [
-            'type'   => $type,
-            'slug'   => $slug,
-            'secret' => $secret,
+
+        // Do NOT include the secret in the body - authenticate via HMAC signature header instead.
+        $body    = wp_json_encode( [
+            'type' => $type,
+            'slug' => $slug,
         ] );
+        $payload = (string) $body;
+
+        // HMAC-SHA256 signature: Next.js verifies with crypto.timingSafeEqual against the same secret.
+        $signature = hash_hmac( 'sha256', $payload, $secret );
 
         $response = wp_remote_post( $endpoint, [
-            'headers'  => [ 'Content-Type' => 'application/json' ],
+            'headers'  => [
+                'Content-Type'         => 'application/json',
+                'X-StoreFuse-Signature' => $signature,
+            ],
             'body'     => $payload,
             'timeout'  => 5,
             'blocking' => false, // fire-and-forget; do not block the WP request

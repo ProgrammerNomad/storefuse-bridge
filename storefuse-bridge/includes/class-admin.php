@@ -13,7 +13,8 @@ class StoreFuse_Bridge_Admin {
         add_action( 'admin_menu',            [ $this, 'register_menus' ] );
         add_action( 'admin_init',            [ $this, 'register_settings' ] );
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
-        add_action( 'wp_ajax_storefuse_bridge_flush_cache', [ $this, 'ajax_flush_cache' ] );
+        add_action( 'wp_ajax_storefuse_bridge_flush_cache',        [ $this, 'ajax_flush_cache' ] );
+        add_action( 'wp_ajax_storefuse_bridge_clear_webhook_log',  [ $this, 'ajax_clear_webhook_log' ] );
     }
 
     // ── Menus ────
@@ -215,6 +216,17 @@ class StoreFuse_Bridge_Admin {
 
         StoreFuse_Bridge_Cache::flush_all();
         wp_send_json_success( [ 'message' => 'Cache flushed successfully.' ] );
+    }
+
+    public function ajax_clear_webhook_log(): void {
+        check_ajax_referer( 'sfb_admin_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+            wp_send_json_error( [ 'message' => 'Permission denied.' ] );
+        }
+
+        delete_option( 'storefuse_bridge_webhook_log' );
+        wp_send_json_success( [ 'message' => 'Webhook log cleared.' ] );
     }
 
     // ── Page templates ────────────────────────────────────────────────────────
