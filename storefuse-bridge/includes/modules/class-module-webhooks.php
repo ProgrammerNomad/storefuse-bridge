@@ -105,7 +105,9 @@ class StoreFuse_Bridge_Module_Webhooks extends StoreFuse_Bridge_Module {
      * The log entry is written regardless of whether the request succeeded so that
      * the admin can see attempted deliveries even when the storefront is unreachable.
      *
-     * @param string $type  Payload type: product | category | settings | navigation
+     * Payload format: { "event": "product.updated", "data": { "slug": "..." } }
+     *
+     * @param string $type  Resource type: product | category | settings | navigation
      * @param string $slug  Resource slug (empty for non-resource payloads like settings).
      */
     private function send_revalidation( string $type, string $slug ): void {
@@ -119,10 +121,19 @@ class StoreFuse_Bridge_Module_Webhooks extends StoreFuse_Bridge_Module {
 
         $endpoint = trailingslashit( esc_url_raw( $storefront_url ) ) . 'api/revalidate';
 
-        // Do NOT include the secret in the body - authenticate via HMAC signature header instead.
+        // Map internal type to the event string the Next.js route expects.
+        $event_map = [
+            'product'    => 'product.updated',
+            'category'   => 'category.updated',
+            'settings'   => 'settings.updated',
+            'navigation' => 'settings.updated',
+        ];
+        $event = $event_map[ $type ] ?? $type . '.updated';
+
+        // Build the payload using the event/data envelope the storefront route expects.
         $body    = wp_json_encode( [
-            'type' => $type,
-            'slug' => $slug,
+            'event' => $event,
+            'data'  => array_filter( [ 'slug' => $slug ] ),
         ] );
         $payload = (string) $body;
 
@@ -131,7 +142,7 @@ class StoreFuse_Bridge_Module_Webhooks extends StoreFuse_Bridge_Module {
 
         $response = wp_remote_post( $endpoint, [
             'headers'  => [
-                'Content-Type'         => 'application/json',
+                'Content-Type'          => 'application/json',
                 'X-StoreFuse-Signature' => $signature,
             ],
             'body'     => $payload,

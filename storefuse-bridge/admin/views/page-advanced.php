@@ -42,6 +42,46 @@ $modules = [
             </table>
         </div>
 
+        <!-- ── Webhooks Configuration ────────────────────────────────── -->
+        <div class="sfb-card">
+            <h2><?php esc_html_e( 'ISR Revalidation Webhooks', 'storefuse-bridge' ); ?></h2>
+            <p class="description">
+                <?php esc_html_e( 'When enabled, StoreFuse will POST a signed request to your Next.js storefront whenever products, categories, or settings change, so cached pages are automatically revalidated.', 'storefuse-bridge' ); ?>
+            </p>
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="sfb_storefront_url"><?php esc_html_e( 'Storefront URL', 'storefuse-bridge' ); ?></label>
+                    </th>
+                    <td>
+                        <input type="url" id="sfb_storefront_url"
+                               name="storefuse_bridge_settings[storefront_url]"
+                               value="<?php echo esc_attr( $s['storefront_url'] ?? '' ); ?>"
+                               class="regular-text"
+                               placeholder="https://your-storefront.com" />
+                        <p class="description">
+                            <?php esc_html_e( 'Root URL of your Next.js storefront. The webhook will be posted to <code>{URL}/api/revalidate</code>.', 'storefuse-bridge' ); ?>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <label for="sfb_revalidation_secret"><?php esc_html_e( 'Revalidation Secret', 'storefuse-bridge' ); ?></label>
+                    </th>
+                    <td>
+                        <input type="password" id="sfb_revalidation_secret"
+                               name="storefuse_bridge_settings[revalidation_secret]"
+                               value="<?php echo esc_attr( $s['revalidation_secret'] ?? '' ); ?>"
+                               class="regular-text"
+                               autocomplete="new-password" />
+                        <p class="description">
+                            <?php esc_html_e( 'Shared HMAC-SHA256 secret. Set the same value as REVALIDATION_SECRET in your storefront .env file. Use a random string of 32+ characters.', 'storefuse-bridge' ); ?>
+                        </p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
         <!-- ── Danger Zone ──────────────────────────────────────────── -->
         <div class="sfb-card sfb-card--danger">
             <h2><?php esc_html_e( 'Cache', 'storefuse-bridge' ); ?></h2>
