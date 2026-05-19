@@ -1,0 +1,151 @@
+/* StoreFuse Bridge - Admin Styles */
+
+.sfb-admin h1 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sfb-version {
+    font-size: 13px;
+    font-weight: 400;
+    color: #888;
+    margin-left: 4px;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────── */
+
+.sfb-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+}
+
+.sfb-card h2 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 15px;
+}
+
+.sfb-card--danger {
+    border-color: #fecaca;
+    background: #fff5f5;
+}
+
+/* ── Dashboard Grid ─────────────────────────────────────────────────── */
+
+.sfb-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+/* ── Status Table ───────────────────────────────────────────────────── */
+
+.sfb-status-table td {
+    padding: 4px 8px;
+}
+
+.sfb-ok {
+    color: #16a34a;
+    font-weight: 600;
+}
+
+/* ── API URL Row ────────────────────────────────────────────────────── */
+
+.sfb-api-url-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.sfb-api-url-row code {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    flex: 1;
+    word-break: break-all;
+}
+
+/* ── Badges ─────────────────────────────────────────────────────────── */
+
+.sfb-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.sfb-badge--on {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.sfb-badge--off {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+/* ── Quick Links ────────────────────────────────────────────────────── */
+
+.sfb-link-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.sfb-link-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color .15s, box-shadow .15s;
+}
+
+.sfb-link-card:hover {
+    border-color: #6366f1;
+    box-shadow: 0 2px 8px rgba(99,102,241,.15);
+    color: inherit;
+}
+
+.sfb-link-card span:first-child {
+    font-size: 22px;
+}
+
+.sfb-link-card strong {
+    font-size: 14px;
+}
+
+.sfb-link-card span:last-child {
+    font-size: 12px;
+    color: #888;
+}
+
+/* ── Trust badges editor ────────────────────────────────────────────── */
+
+.sfb-trust-badge-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.sfb-trust-badge-row .small-text {
+    width: 60px !important;
+}
