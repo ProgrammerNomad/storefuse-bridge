@@ -20,10 +20,13 @@ class StoreFuse_Bridge_Auth {
     /**
      * Permission callback for cart write endpoints (add, update, remove, coupon).
      * Requires a valid X-WC-Nonce header.
+     *
+     * Returns WP_Error (not WP_REST_Response) so WordPress REST dispatcher actually blocks
+     * the request. WP_REST_Response is truthy and would be ignored by permission_callback.
      */
-    public static function cart_permission( WP_REST_Request $request ): bool|WP_REST_Response {
+    public static function cart_permission( WP_REST_Request $request ): bool|WP_Error {
         if ( ! self::validate_nonce( $request, 'wc_store_api' ) ) {
-            return StoreFuse_Bridge_Errors::invalid_nonce();
+            return new WP_Error( 'invalid_nonce', 'Security token missing or invalid.', [ 'status' => 403 ] );
         }
         return true;
     }
@@ -32,12 +35,12 @@ class StoreFuse_Bridge_Auth {
      * Permission callback for checkout.
      * Requires a valid nonce AND an active WooCommerce cart session.
      */
-    public static function checkout_permission( WP_REST_Request $request ): bool|WP_REST_Response {
+    public static function checkout_permission( WP_REST_Request $request ): bool|WP_Error {
         if ( ! self::validate_nonce( $request, 'wc_store_api' ) ) {
-            return StoreFuse_Bridge_Errors::invalid_nonce();
+            return new WP_Error( 'invalid_nonce', 'Security token missing or invalid.', [ 'status' => 403 ] );
         }
         if ( ! self::validate_cart_session() ) {
-            return StoreFuse_Bridge_Errors::validation_error( 'No active cart session.' );
+            return new WP_Error( 'checkout_no_session', 'No active cart session.', [ 'status' => 403 ] );
         }
         return true;
     }
@@ -46,10 +49,10 @@ class StoreFuse_Bridge_Auth {
      * Permission callback for auth write endpoints (login, register, logout, etc.).
      * Requires X-WP-Nonce header (standard WordPress REST nonce).
      */
-    public static function auth_write_permission( WP_REST_Request $request ): bool|WP_REST_Response {
+    public static function auth_write_permission( WP_REST_Request $request ): bool|WP_Error {
         $nonce = $request->get_header( 'X-WP-Nonce' );
         if ( ! $nonce || ! wp_verify_nonce( $nonce, 'wp_rest' ) ) {
-            return StoreFuse_Bridge_Errors::invalid_nonce();
+            return new WP_Error( 'invalid_nonce', 'Security token missing or invalid.', [ 'status' => 403 ] );
         }
         return true;
     }
