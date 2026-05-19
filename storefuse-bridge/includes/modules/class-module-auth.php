@@ -25,7 +25,7 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/auth/register', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ $this, 'register' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Auth', 'auth_write_permission' ],
             'args'                => [
                 'email'      => [
                     'required'          => true,
@@ -54,7 +54,7 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/auth/login', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ $this, 'login' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Auth', 'auth_write_permission' ],
             'args'                => [
                 'email'    => [
                     'required'          => true,
@@ -88,7 +88,7 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/auth/forgot-password', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ $this, 'forgot_password' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Auth', 'auth_write_permission' ],
             'args'                => [
                 'email' => [
                     'required'          => true,
@@ -101,7 +101,7 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/auth/reset-password', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ $this, 'reset_password' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Auth', 'auth_write_permission' ],
             'args'                => [
                 'login'    => [
                     'required'          => true,

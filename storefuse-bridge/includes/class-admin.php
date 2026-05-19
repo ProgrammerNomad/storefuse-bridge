@@ -164,6 +164,9 @@ class StoreFuse_Bridge_Admin {
         // Flush cache whenever settings are saved
         StoreFuse_Bridge_Cache::flush_all();
 
+        // Notify other parts of the plugin (e.g. Webhooks ISR module) that settings changed.
+        do_action( 'storefuse_bridge_settings_updated' );
+
         return $clean;
     }
 

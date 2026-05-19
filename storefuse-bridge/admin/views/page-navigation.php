@@ -117,7 +117,7 @@ $menus_url = admin_url( 'nav-menus.php' );
         fetch( '<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>', {
             method  : 'POST',
             headers : { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body    : 'action=storefuse_bridge_flush_cache&_ajax_nonce=<?php echo esc_js( wp_create_nonce( 'storefuse_bridge_flush_cache' ) ); ?>',
+            body    : 'action=storefuse_bridge_flush_cache&nonce=' + encodeURIComponent( sfbAdmin.nonce ),
         } )
         .then( function ( r ) { return r.json(); } )
         .then( function ( data ) {

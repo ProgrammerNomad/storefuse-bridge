@@ -88,6 +88,9 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         $checkout = WC()->checkout();
 
         $data = apply_filters( 'storefuse_bridge_checkout_config', [
+            'checkout_mode'                => StoreFuse_Bridge_Settings::get( 'checkout_mode', 'redirect' ),
+            'checkout_redirect_label'      => StoreFuse_Bridge_Settings::get( 'checkout_redirect_label', 'Proceed to Checkout' ),
+            'checkout_page_url'            => StoreFuse_Bridge_Settings::get( 'checkout_page_url', '' ) ?: wc_get_checkout_url(),
             'billing_fields'               => $this->format_fields( $checkout->get_checkout_fields( 'billing' ) ),
             'shipping_fields'              => $this->format_fields( $checkout->get_checkout_fields( 'shipping' ) ),
             'has_shipping'                 => WC()->cart->needs_shipping(),
