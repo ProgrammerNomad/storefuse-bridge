@@ -23,7 +23,7 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
 
     public function register_routes(): void {
 
-        // Public nonce endpoint — called by the storefront before login/register
+        // Public nonce endpoint - called by the storefront before login/register
         // to obtain a fresh wp_rest nonce for the X-WP-Nonce header.
         register_rest_route( $this->namespace, '/auth/nonce', [
             'methods'             => WP_REST_Server::READABLE,
@@ -137,7 +137,7 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
      *
      * Returns a fresh wp_rest nonce so headless storefronts can include it in
      * X-WP-Nonce on the login, register, forgot-password, and reset-password
-     * requests.  Public endpoint — no auth required.
+     * requests.  Public endpoint - no auth required.
      */
     public function get_nonce( WP_REST_Request $request ): WP_REST_Response {
         $response = $this->success(

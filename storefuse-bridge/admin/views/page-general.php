@@ -85,29 +85,52 @@ $s = StoreFuse_Bridge_Settings::all();
 
         <!-- ── Site Identity (read-only) ─────────────────────────────── -->
         <div class="sfb-card">
-            <h2><?php esc_html_e( 'Site Identity', 'storefuse-bridge' ); ?></h2>
-            <p><?php esc_html_e( 'Logo and favicon are managed in WordPress Customizer.', 'storefuse-bridge' ); ?>
+            <h2><?php esc_html_e( 'Site identity', 'storefuse-bridge' ); ?></h2>
+            <p class="description"><?php esc_html_e( 'API: GET /settings → site (name, tagline, logo_url, favicon_url). Edit in Customizer.', 'storefuse-bridge' ); ?></p>
+            <p>
                <a href="<?php echo esc_url( admin_url( 'customize.php?autofocus[section]=title_tagline' ) ); ?>" class="button button-small">
-                   <?php esc_html_e( 'Open Customizer →', 'storefuse-bridge' ); ?>
+                   <?php esc_html_e( 'Site title & tagline', 'storefuse-bridge' ); ?>
+               </a>
+               <a href="<?php echo esc_url( admin_url( 'customize.php?autofocus[control]=custom_logo' ) ); ?>" class="button button-small">
+                   <?php esc_html_e( 'Logo', 'storefuse-bridge' ); ?>
+               </a>
+               <a href="<?php echo esc_url( admin_url( 'customize.php?autofocus[control]=site_icon' ) ); ?>" class="button button-small">
+                   <?php esc_html_e( 'Favicon', 'storefuse-bridge' ); ?>
                </a>
             </p>
             <table class="form-table">
                 <tr>
-                    <th><?php esc_html_e( 'Site Name', 'storefuse-bridge' ); ?></th>
+                    <th scope="row"><?php esc_html_e( 'Site name', 'storefuse-bridge' ); ?></th>
                     <td><?php echo esc_html( get_bloginfo( 'name' ) ); ?></td>
                 </tr>
                 <tr>
-                    <th><?php esc_html_e( 'Logo URL', 'storefuse-bridge' ); ?></th>
+                    <th scope="row"><?php esc_html_e( 'Tagline', 'storefuse-bridge' ); ?></th>
+                    <td><?php echo esc_html( get_bloginfo( 'description' ) ); ?></td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'Logo URL', 'storefuse-bridge' ); ?></th>
                     <td>
                         <?php
                         $logo_id  = get_theme_mod( 'custom_logo' );
                         $logo_url = $logo_id ? wp_get_attachment_image_url( $logo_id, 'full' ) : null;
                         ?>
                         <?php if ( $logo_url ) : ?>
-                            <img src="<?php echo esc_url( $logo_url ); ?>" style="max-height:40px;vertical-align:middle;margin-right:8px;" />
+                            <img src="<?php echo esc_url( $logo_url ); ?>" style="max-height:40px;vertical-align:middle;margin-right:8px;" alt="" />
                             <code><?php echo esc_html( $logo_url ); ?></code>
                         <?php else : ?>
                             <em><?php esc_html_e( 'No logo set', 'storefuse-bridge' ); ?></em>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'Favicon URL', 'storefuse-bridge' ); ?></th>
+                    <td>
+                        <?php $favicon = get_site_icon_url(); ?>
+                        <?php if ( $favicon ) : ?>
+                            <img src="<?php echo esc_url( $favicon ); ?>" style="width:32px;height:32px;vertical-align:middle;margin-right:8px;" alt="" />
+                            <code><?php echo esc_html( $favicon ); ?></code>
+                        <?php else : ?>
+                            <em><?php esc_html_e( 'No site icon set', 'storefuse-bridge' ); ?></em>
                         <?php endif; ?>
                     </td>
                 </tr>

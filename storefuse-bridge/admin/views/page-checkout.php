@@ -21,7 +21,7 @@ if ( function_exists( 'WC' ) && WC()->payment_gateways() ) {
         <div class="sfb-card">
             <h2><?php esc_html_e( 'Checkout Mode', 'storefuse-bridge' ); ?></h2>
             <p class="description">
-                <?php esc_html_e( 'Choose how checkout is handled. "Redirect" sends customers to the native WooCommerce checkout page. "Headless" keeps the customer on the Next.js storefront throughout.', 'storefuse-bridge' ); ?>
+                <?php esc_html_e( 'Choose how checkout works for any headless client (Next.js, Flutter WebView, custom SPA). API: GET /checkout/config.', 'storefuse-bridge' ); ?>
             </p>
             <table class="form-table">
                 <tr>
@@ -34,7 +34,7 @@ if ( function_exists( 'WC' ) && WC()->payment_gateways() ) {
                                        value="redirect"
                                        id="sfb-mode-redirect"
                                        <?php checked( $mode, 'redirect' ); ?> />
-                                <?php esc_html_e( 'Redirect — Send customers to the native WooCommerce checkout', 'storefuse-bridge' ); ?>
+                                <?php esc_html_e( 'Redirect - Send customers to the native WooCommerce checkout', 'storefuse-bridge' ); ?>
                             </label>
                             <br>
                             <label>
@@ -43,7 +43,7 @@ if ( function_exists( 'WC' ) && WC()->payment_gateways() ) {
                                        value="headless"
                                        id="sfb-mode-headless"
                                        <?php checked( $mode, 'headless' ); ?> />
-                                <?php esc_html_e( 'Headless — Handle checkout entirely within the Next.js storefront', 'storefuse-bridge' ); ?>
+                                <?php esc_html_e( 'Headless - checkout UI stays on your storefront (requires Store API–compatible gateways)', 'storefuse-bridge' ); ?>
                             </label>
                         </fieldset>
                     </td>
@@ -115,7 +115,8 @@ if ( function_exists( 'WC' ) && WC()->payment_gateways() ) {
                                 <?php endforeach; ?>
                             </ul>
                             <p class="description">
-                                <?php esc_html_e( 'Verify each gateway supports Block Checkout before enabling headless mode.', 'storefuse-bridge' ); ?>
+                                <?php esc_html_e( 'Verify each gateway supports Block Checkout / Store API before enabling headless mode.', 'storefuse-bridge' ); ?>
+                                <a href="<?php echo esc_url( plugins_url( '../docs/clients/mobile-flutter.md', dirname( __FILE__ ) ) ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Mobile checkout notes →', 'storefuse-bridge' ); ?></a>
                             </p>
                         <?php else : ?>
                             <p class="description">
@@ -131,20 +132,3 @@ if ( function_exists( 'WC' ) && WC()->payment_gateways() ) {
     </form>
 </div>
 
-<script>
-( function () {
-    var radios     = document.querySelectorAll( 'input[name="storefuse_bridge_settings[checkout_mode]"]' );
-    var panelRedir = document.getElementById( 'sfb-panel-redirect' );
-    var panelHead  = document.getElementById( 'sfb-panel-headless' );
-
-    function toggle() {
-        var val = document.querySelector( 'input[name="storefuse_bridge_settings[checkout_mode]"]:checked' );
-        if ( ! val ) return;
-        panelRedir.style.display = ( val.value === 'redirect'  ) ? '' : 'none';
-        panelHead.style.display  = ( val.value === 'headless' ) ? '' : 'none';
-    }
-
-    radios.forEach( function ( r ) { r.addEventListener( 'change', toggle ); } );
-    toggle();
-} )();
-</script>

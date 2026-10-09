@@ -29,7 +29,9 @@ abstract class StoreFuse_Bridge_Module {
         if ( $this->id === '' ) {
             return true;
         }
-        return (bool) StoreFuse_Bridge_Settings::get( "module_{$this->id}_enabled", true );
+
+        $key = "module_{$this->id}_enabled";
+        return (bool) StoreFuse_Bridge_Settings::get( $key, true );
     }
 
     /**

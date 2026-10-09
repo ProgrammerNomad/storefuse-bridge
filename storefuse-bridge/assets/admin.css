@@ -36,6 +36,24 @@
     background: #fff5f5;
 }
 
+.sfb-featured-cat-row,
+.sfb-trust-badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.sfb-nav-preview {
+    list-style: disc;
+    margin: 0 0 8px 0;
+}
+
+.sfb-notice--warning {
+    color: #b45309;
+}
+
 /* ── Dashboard Grid ─────────────────────────────────────────────────── */
 
 .sfb-dashboard-grid {

@@ -18,7 +18,7 @@ class StoreFuse_Bridge_WC_Compat {
         return [
             'hpos'                => self::has_hpos(),
             'store_api'           => self::has_store_api(),
-            'headless_checkout'   => false, // future milestone
+            'headless_checkout'   => self::headless_checkout_enabled(),
             'subscriptions'       => self::has_subscriptions(),
             'memberships'         => self::has_memberships(),
             'wpml'                => self::has_wpml(),
@@ -46,6 +46,16 @@ class StoreFuse_Bridge_WC_Compat {
      */
     public static function has_store_api(): bool {
         return class_exists( 'Automattic\WooCommerce\StoreApi\StoreApi' );
+    }
+
+    /**
+     * Whether headless checkout is active (checkout module + headless mode).
+     */
+    public static function headless_checkout_enabled(): bool {
+        if ( ! (bool) StoreFuse_Bridge_Settings::get( 'module_checkout_enabled', true ) ) {
+            return false;
+        }
+        return StoreFuse_Bridge_Settings::get( 'checkout_mode', 'redirect' ) === 'headless';
     }
 
     // ── WooCommerce extensions ───────────────────────────────────────────────

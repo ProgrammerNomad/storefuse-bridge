@@ -2,7 +2,9 @@
 
 **Base URL**: `https://your-wordpress-site.com/wp-json/storefuse/v1`
 
-**Authentication**: Public endpoints require no auth. Customer endpoints require a logged-in session (WordPress auth cookie set by `POST /auth/login`). Cart/checkout write endpoints require an `X-WP-Nonce` header. Auth write endpoints require an `X-WP-Nonce` header (CSRF protection).
+**Authentication**: Tiered - see [verified-routes.md](verified-routes.md) for the full matrix. Summary: catalog/settings are **public**; cart/checkout **writes** use `X-WC-Nonce` (Woo session); auth **writes** use `X-WP-Nonce` (bootstrap via `GET /auth/nonce`); customer account/orders use WordPress **auth cookies** plus `X-WP-Nonce` on mutating requests.
+
+**Canonical route list:** [verified-routes.md](verified-routes.md) (audited from PHP).
 
 All responses: `Content-Type: application/json`.
 
@@ -10,7 +12,7 @@ All responses: `Content-Type: application/json`.
 ```json
 {
   "schema": "storefuse.{resource}.v1",
-  "api_version": "1.0.0",
+  "api_version": "0.1.0",
   "data": {}
 }
 ```
@@ -21,14 +23,14 @@ Why: the `schema` field lets the frontend detect which version of a response sha
 
 Public endpoints (`/products`, `/categories`, `/homepage`, `/search`, etc.):
 ```
-X-StoreFuse-Bridge-Version: 1.0.0
+X-StoreFuse-Bridge-Version: 0.1.0
 X-StoreFuse-Cache: HIT | MISS
 Cache-Control: public, max-age=600, s-maxage=600
 ```
 
 Session endpoints (`/cart`, `/account`, `/orders`, `/auth/*`):
 ```
-X-StoreFuse-Bridge-Version: 1.0.0
+X-StoreFuse-Bridge-Version: 0.1.0
 Cache-Control: no-store
 X-StoreFuse-Cart-Token: {session_id}
 ```
@@ -53,7 +55,7 @@ No endpoint returns a price as a plain string. No endpoint returns an image as a
 ```json
 {
   "schema": "storefuse.error.v1",
-  "api_version": "1.0.0",
+  "api_version": "0.1.0",
   "error": {
     "code": "product_not_found",
     "message": "Product not found.",
@@ -63,6 +65,34 @@ No endpoint returns a price as a plain string. No endpoint returns an image as a
 ```
 
 The `status` field is included in the body (not only as the HTTP status code) so clients that don't inspect status codes still get the correct error context. All error codes are snake_case strings.
+
+---
+
+## Auth tiers
+
+| Tier | Routes (examples) | Required |
+|------|-------------------|----------|
+| Public | `/products`, `/settings`, `/status`, `POST /checkout/redirect-url` | None |
+| Session read | `GET /cart` | WC session cookie recommended |
+| Session write | `POST /cart/*`, `POST /checkout` | `Cookie` + `X-WC-Nonce` |
+| Auth write | `POST /auth/login`, `/register`, `/logout`, password reset | `X-WP-Nonce` (`GET /auth/nonce` first) |
+| Authenticated | `/account`, `/orders`, `/wishlist`, `GET /auth/me` | WordPress auth cookie |
+| Authenticated + WP nonce | `PUT /account`, order cancel, wishlist mutations | Cookie + `X-WP-Nonce` |
+
+Some handlers enforce login/nonce even when the REST `permission_callback` is public (e.g. `POST /reviews`, `GET /auth/me`). See [verified-routes.md](verified-routes.md).
+
+---
+
+## Client header matrix
+
+| Header | Used for | Next.js | Flutter |
+|--------|----------|---------|---------|
+| `Cookie` | WP auth + WC session | `credentials: 'include'` or BFF proxy | Cookie jar per API host |
+| `X-WP-Nonce` | Auth and account writes | From `/auth/nonce` or login/me payload | Same; refresh after login |
+| `X-WC-Nonce` | Cart, checkout, reorder | From `/auth/me` `cart_nonce` or cart flow | Persist with session state |
+| `X-StoreFuse-Cart-Token` | Response only; optional client storage | Optional debug/merge aid | Recommended for session continuity |
+
+Do not put session or authenticated responses on public CDN caches.
 
 ---
 
@@ -96,6 +126,7 @@ GET  /utils/countries
 GET  /utils/pincode/{pincode}       India: pincode -> city/state
 
 # Authentication
+GET  /auth/nonce
 POST /auth/register
 POST /auth/login
 POST /auth/logout
@@ -150,11 +181,11 @@ Health check. Confirms plugin is active, lists available modules, and exposes a 
 ```json
 {
   "schema": "storefuse.status.v1",
-  "api_version": "1.0.0",
+  "api_version": "0.1.0",
   "data": {
     "status": "ok",
     "plugin": "StoreFuse Bridge",
-    "version": "0.4.0",
+    "version": "0.1.0",
     "wordpress": "6.5.3",
     "woocommerce": "9.0.0",
     "php": "8.2.0",
@@ -167,7 +198,8 @@ Health check. Confirms plugin is active, lists available modules, and exposes a 
       "search": true,
       "cart": true,
       "checkout": true,
-      "content": true,
+      "posts": true,
+      "reviews": true,
       "webhooks": false
     },
     "features": {
@@ -185,7 +217,7 @@ Health check. Confirms plugin is active, lists available modules, and exposes a 
 }
 ```
 
-The `features` map is detected at request time via `class_exists()` and `is_plugin_active()`. The storefront reads this once on startup to determine runtime behaviour (e.g. whether to show a language switcher, which SEO data fields to expect). No hardcoded capability checks in the storefront codebase.
+The `features` map is detected at request time via `class_exists()` and plugin settings. `headless_checkout` is `true` when the checkout module is enabled and **Checkout mode** in WP admin is set to **Headless**; otherwise `false`. The storefront reads this once on startup to adapt checkout UI. No hardcoded capability checks in client code.
 
 ---
 
@@ -199,7 +231,7 @@ The primary startup endpoint. One request - all site identity, store config, nav
 ```json
 {
   "schema": "storefuse.settings.v1",
-  "api_version": "1.0.0",
+  "api_version": "0.1.0",
   "data": {
     "site": {
       "name": "My Festive Store",
@@ -275,7 +307,7 @@ Homepage configuration: hero, featured categories, announcement bar.
 ```json
 {
   "schema": "storefuse.homepage.v1",
-  "api_version": "1.0.0",
+  "api_version": "0.1.0",
   "data": {
     "announcement_bar": {
       "enabled": true,
@@ -353,7 +385,7 @@ Product list. Storefront-optimised with pagination.
 ```json
 {
   "schema": "storefuse.products.v1",
-  "api_version": "1.0.0",
+  "api_version": "0.1.0",
   "data": {
     "products": [
       {
@@ -405,7 +437,7 @@ The `seo` field is populated by the active SEO plugin (Yoast, RankMath, etc.) vi
 ```json
 {
   "schema": "storefuse.product.v1",
-  "api_version": "1.0.0",
+  "api_version": "0.1.0",
   "data": {
     "product": {
       "id": "123",
@@ -511,7 +543,7 @@ Returns all product attributes and their terms. Used to build the filter sidebar
 ```json
 {
   "schema": "storefuse.attributes.v1",
-  "api_version": "1.0.0",
+  "api_version": "0.1.0",
   "data": [
     {
       "id": "3",
@@ -551,7 +583,7 @@ All product tags. Used for tag filter chips or tag cloud on shop page.
 ```json
 {
   "schema": "storefuse.tags.v1",
-  "api_version": "1.0.0",
+  "api_version": "0.1.0",
   "data": [
     { "id": "5", "name": "Diwali", "slug": "diwali", "count": 34 },
     { "id": "6", "name": "New Arrival", "slug": "new-arrival", "count": 12 },
@@ -572,10 +604,10 @@ Registers a back-in-stock alert for an out-of-stock product. Requires user email
 
 **Response**: `{ "data": { "registered": true } }`
 
-The actual notification email is handled by WooCommerce or a plugin (Back In Stock Notifier, etc.) via the `storefuse_bridge_notify_registered` action hook:
+Integrate with WooCommerce or a back-in-stock plugin via the `storefuse_bridge_notify_signup` action:
 
 ```php
-do_action('storefuse_bridge_notify_registered', $product_id, $email);
+do_action( 'storefuse_bridge_notify_signup', $email, $product );
 ```
 
 If no plugin is listening, the bridge stores the email in a custom table and a background process checks stock on WC `woocommerce_product_set_stock_status` hook.
@@ -696,7 +728,7 @@ Creates a new customer account and immediately logs them in.
 ```json
 {
   "schema": "storefuse.auth.v1",
-  "api_version": "1.0.0",
+  "api_version": "0.1.0",
   "data": {
     "user": {
       "id": 42,
@@ -734,7 +766,7 @@ Called on storefront startup. No auth required (returns `logged_in: false` grace
 ```json
 {
   "schema": "storefuse.auth.v1",
-  "api_version": "1.0.0",
+  "api_version": "0.1.0",
   "data": {
     "logged_in": true,
     "user": {
@@ -783,7 +815,7 @@ All endpoints in this section require the user to be logged in. Unauthenticated 
 ```json
 {
   "schema": "storefuse.customer.v1",
-  "api_version": "1.0.0",
+  "api_version": "0.1.0",
   "data": {
     "id": 42,
     "email": "user@example.com",
@@ -816,7 +848,7 @@ Returns the current customer's order history.
 ```json
 {
   "schema": "storefuse.orders.v1",
-  "api_version": "1.0.0",
+  "api_version": "0.1.0",
   "data": [
     {
       "id": 123,
@@ -839,7 +871,7 @@ Full order detail. Returns 403 if the order belongs to a different customer.
 ```json
 {
   "schema": "storefuse.order.v1",
-  "api_version": "1.0.0",
+  "api_version": "0.1.0",
   "data": {
     "id": 123,
     "number": "#123",
@@ -1089,7 +1121,7 @@ Returns all countries and their states/provinces. Used to populate country and s
 ```json
 {
   "schema": "storefuse.countries.v1",
-  "api_version": "1.0.0",
+  "api_version": "0.1.0",
   "data": [
     {
       "code": "IN",
@@ -1230,242 +1262,8 @@ All errors follow WordPress REST API conventions:
 | `/reviews` | 30 min | Review posted/approved |
 | `/posts` | 1 hour | Post published/updated |
 
+Session, auth, cart, checkout, account, and order endpoints use **`Cache-Control: no-store`**. Only public catalog and settings responses are safe for CDN/ISR caching.
 
-All endpoints are **public, read-only, no authentication required**.  
-All responses are `Content-Type: application/json`.  
-CORS is open for all origins (configurable in plugin settings).
+All responses use `Content-Type: application/json` and the StoreFuse envelope (`schema`, `api_version`, `data` or `error`).
 
----
-
-## GET /status
-
-Health check. Confirms the plugin is active and returns version info.
-
-**Request**
-```
-GET /wp-json/storefuse/v1/status
-```
-
-**Response**
-```json
-{
-  "status": "ok",
-  "plugin": "StoreFuse Bridge",
-  "version": "0.1.0",
-  "wordpress": "6.5.3",
-  "woocommerce": "9.0.0",
-  "site_url": "https://yourstore.com",
-  "api_namespace": "storefuse/v1"
-}
-```
-
----
-
-## GET /settings
-
-The main endpoint. Returns all site identity, store configuration, navigation, and social data in a single request. The StoreFuse storefront calls this once at startup.
-
-**Request**
-```
-GET /wp-json/storefuse/v1/settings
-```
-
-**Response**
-```json
-{
-  "site": {
-    "name": "My Festive Store",
-    "tagline": "Handcrafted for modern homes",
-    "url": "https://yourstore.com",
-    "logo_url": "https://yourstore.com/wp-content/uploads/2024/logo.png",
-    "favicon_url": "https://yourstore.com/wp-content/uploads/2024/favicon.ico",
-    "admin_email": "admin@yourstore.com"
-  },
-  "store": {
-    "currency": "INR",
-    "currency_symbol": "₹",
-    "currency_position": "left",
-    "price_decimal_separator": ".",
-    "price_thousand_separator": ",",
-    "price_decimals": 0,
-    "free_shipping_threshold": 999,
-    "free_shipping_label": "Free shipping on orders over ₹999",
-    "return_policy_days": 7,
-    "cod_enabled": true
-  },
-  "header": {
-    "announcement_bar_enabled": true,
-    "announcement_bar_text": "🚚 Free shipping on orders over ₹999 · Easy 7-day returns",
-    "announcement_bar_bg_color": "#E85D04"
-  },
-  "navigation": {
-    "main": [
-      { "id": 1, "label": "Home", "href": "/", "parent": null },
-      { "id": 2, "label": "Shop", "href": "/shop", "parent": null },
-      { "id": 3, "label": "New Arrivals", "href": "/shop?sort=newest", "parent": null },
-      { "id": 4, "label": "Sale", "href": "/shop?on_sale=true", "parent": null }
-    ],
-    "categories": [
-      {
-        "id": 12,
-        "label": "Festive Decor",
-        "slug": "festive-decor",
-        "href": "/category/festive-decor",
-        "icon": "🪔",
-        "image": { "url": "https://yourstore.com/wp-content/uploads/festive-decor.jpg", "alt": "Festive Decor", "width": 800, "height": 800, "srcset": [] }
-      },
-      {
-        "id": 15,
-        "label": "Diyas & Lamps",
-        "slug": "diyas",
-        "href": "/category/diyas",
-        "icon": "✨",
-        "image_url": null
-      }
-    ],
-    "footer": [
-      { "id": 10, "label": "Shop", "href": "/shop", "parent": null },
-      { "id": 11, "label": "Cart", "href": "/cart", "parent": null }
-    ]
-  },
-  "trust_badges": [
-    { "icon": "🚚", "title": "Free Shipping", "description": "On orders over ₹999" },
-    { "icon": "↩", "title": "Easy Returns", "description": "7-day hassle-free returns" },
-    { "icon": "🔒", "title": "Secure Payment", "description": "100% protected checkout" },
-    { "icon": "🤝", "title": "Handmade Quality", "description": "Authentic artisan products" }
-  ],
-  "social_links": {
-    "instagram": "https://instagram.com/yourstore",
-    "facebook": "https://facebook.com/yourstore",
-    "twitter": null,
-    "youtube": null,
-    "pinterest": null,
-    "whatsapp": null
-  }
-}
-```
-
----
-
-## GET /navigation
-
-Navigation menus only. Use this if you only need to refresh nav without re-fetching all settings.
-
-**Request**
-```
-GET /wp-json/storefuse/v1/navigation
-```
-
-**Response**
-```json
-{
-  "main": [
-    { "id": 1, "label": "Home", "href": "/", "parent": null, "target": "_self" },
-    { "id": 2, "label": "Shop", "href": "/shop", "parent": null, "target": "_self" }
-  ],
-  "categories": [
-    {
-      "id": 12,
-      "label": "Festive Decor",
-      "slug": "festive-decor",
-      "href": "/category/festive-decor",
-      "icon": "🪔",
-      "image_url": "https://yourstore.com/..."
-    }
-  ],
-  "footer": [
-    { "id": 10, "label": "Shop", "href": "/shop", "parent": null }
-  ]
-}
-```
-
-**Notes**
-- `main` comes from the WordPress nav menu assigned to the `storefuse-header` location. Fallback is auto-generated from WooCommerce categories.
-- `categories` comes from top-level WooCommerce product categories (up to 8, ordered by menu_order).
-- `footer` comes from the WordPress nav menu assigned to the `storefuse-footer` location.
-
----
-
-## GET /homepage
-
-Homepage-specific configuration: hero content, featured categories (admin-curated), announcement bar state.
-
-**Request**
-```
-GET /wp-json/storefuse/v1/homepage
-```
-
-**Response**
-```json
-{
-  "announcement_bar": {
-    "enabled": true,
-    "text": "🪔 New Festive Collection 2026 - Shop now",
-    "bg_color": "#E85D04",
-    "link": "/shop?tag=new-2026"
-  },
-  "hero": {
-    "badge_text": "🪔 New Festive Collection 2026",
-    "headline": "Handcrafted decor for modern homes",
-    "headline_highlight": "modern homes",
-    "subheadline": "Discover artisan-made festive pieces, diyas, jewelry and home accents.",
-    "cta_primary_label": "Shop Now",
-    "cta_primary_href": "/shop",
-    "cta_secondary_label": "New Arrivals",
-    "cta_secondary_href": "/shop?sort=newest",
-    "image_url": null,
-    "rating_text": "4.8/5 from 2,400+ reviews",
-    "shipping_text": "Free shipping over ₹999"
-  },
-  "featured_categories": [
-    {
-      "label": "Festive Decor",
-      "icon": "🪔",
-      "href": "/category/festive-decor",
-      "slug": "festive-decor",
-      "color_class": "bg-orange-50 hover:bg-orange-100"
-    }
-  ],
-  "trust_items": [
-    { "icon": "🤝", "title": "Handmade Quality", "description": "Every piece crafted by skilled artisans" },
-    { "icon": "🚚", "title": "Fast Shipping", "description": "Delivered in 3–5 business days" },
-    { "icon": "🔒", "title": "Secure Payments", "description": "SSL encrypted, 100% safe" },
-    { "icon": "↩", "title": "Easy Returns", "description": "7-day no-questions-asked policy" }
-  ]
-}
-```
-
----
-
-## Caching
-
-The StoreFuse storefront caches these responses using Next.js fetch cache:
-
-| Endpoint | Recommended revalidate |
-|---|---|
-| `/settings` | 3600 (1 hour) |
-| `/navigation` | 3600 (1 hour) |
-| `/homepage` | 900 (15 minutes) |
-| `/status` | no-cache |
-
-When you save settings in the WordPress admin, the plugin can optionally trigger an ISR revalidation webhook to your Next.js app (future feature, v1.1).
-
----
-
-## Error Responses
-
-All error responses follow WordPress REST API conventions:
-
-```json
-{
-  "code": "storefuse_bridge_not_active",
-  "message": "WooCommerce is required but not active.",
-  "data": { "status": 500 }
-}
-```
-
-| Code | HTTP Status | Meaning |
-|---|---|---|
-| `storefuse_bridge_not_active` | 500 | WooCommerce not active |
-| `rest_forbidden` | 403 | Endpoint restricted (not expected in normal use) |
-| `rest_no_route` | 404 | Plugin not installed or namespace wrong |
+For a duplicate-free endpoint list and manual test checklist, see [verified-routes.md](verified-routes.md).

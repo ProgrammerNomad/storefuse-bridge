@@ -85,6 +85,9 @@ final class StoreFuse_Bridge {
         // Cache auto-invalidation hooks
         StoreFuse_Bridge_Cache::register_invalidation_hooks();
 
+        // CORS for browser / SPA clients
+        StoreFuse_Bridge_Cors::init();
+
         // Normalize all error responses from our namespace to the StoreFuse envelope.
         // This covers: WP_Error from permission_callback, WP core auth errors (rest_cookie_invalid_nonce),
         // and any other WP-generated error that reaches the client.

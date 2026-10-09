@@ -80,6 +80,8 @@ function storefuse_bridge_activate(): void {
     update_option( 'storefuse_bridge_version', STOREFUSE_BRIDGE_VERSION );
     update_option( 'storefuse_bridge_activated_at', current_time( 'mysql' ) );
 
+    set_transient( 'storefuse_bridge_show_setup_notice', 1, WEEK_IN_SECONDS );
+
     // Flush rewrite rules so REST routes register cleanly
     flush_rewrite_rules();
 }
@@ -95,14 +97,32 @@ function storefuse_bridge_deactivate(): void {
 // ── Admin notice: WooCommerce missing ────────────────────────────────────────
 
 add_action( 'admin_notices', function (): void {
-    if ( class_exists( 'WooCommerce' ) ) {
+    if ( ! class_exists( 'WooCommerce' ) ) {
+        echo '<div class="notice notice-error"><p>';
+        printf(
+            /* translators: %s: WooCommerce plugin link */
+            esc_html__( 'StoreFuse Bridge requires %s to be installed and active.', 'storefuse-bridge' ),
+            '<strong>WooCommerce</strong>'
+        );
+        echo '</p></div>';
         return;
     }
-    echo '<div class="notice notice-error"><p>';
+
+    if ( ! get_transient( 'storefuse_bridge_show_setup_notice' ) ) {
+        return;
+    }
+    if ( ! current_user_can( 'manage_woocommerce' ) ) {
+        return;
+    }
+
+    $dash_url = admin_url( 'admin.php?page=storefuse-bridge' );
+    echo '<div class="notice notice-info is-dismissible" data-sfb-setup-notice="1"><p>';
     printf(
-        /* translators: %s: WooCommerce plugin link */
-        esc_html__( 'StoreFuse Bridge requires %s to be installed and active.', 'storefuse-bridge' ),
-        '<strong>WooCommerce</strong>'
+        wp_kses_post(
+            /* translators: %s: dashboard URL */
+            __( '<strong>StoreFuse Bridge is active.</strong> Complete the setup checklist on the <a href="%s">Dashboard</a> to connect your headless storefront (web or mobile).', 'storefuse-bridge' )
+        ),
+        esc_url( $dash_url )
     );
     echo '</p></div>';
 } );
@@ -119,24 +139,31 @@ add_action( 'plugins_loaded', function (): void {
 // ── Storefront integrations ───────────────────────────────────────────────────
 
 /**
- * Redirect password reset emails to the storefront /reset-password page
- * instead of the WordPress login page.
+ * Redirect password reset emails to the storefront reset page when configured.
  *
- * The storefront URL is stored in the StoreFuse Bridge settings as
- * `storefuse_storefront_url`.
+ * Uses `storefront_url` and `storefront_reset_path` from StoreFuse Bridge settings.
+ * Companion plugins or themes may override via `storefuse_bridge_password_reset_url`.
  */
 add_filter( 'storefuse_bridge_password_reset_url', function ( string $wp_url, WP_User $user, string $key ): string {
-    $storefront_url = rtrim( (string) get_option( 'storefuse_storefront_url', '' ), '/' );
+    $storefront_url = rtrim( (string) StoreFuse_Bridge_Settings::get( 'storefront_url', '' ), '/' );
+
+    // Legacy option (pre-settings UI); remove once no stores rely on it.
+    if ( ! $storefront_url ) {
+        $storefront_url = rtrim( (string) get_option( 'storefuse_storefront_url', '' ), '/' );
+    }
 
     if ( ! $storefront_url ) {
         return $wp_url;
     }
+
+    $path = (string) StoreFuse_Bridge_Settings::get( 'storefront_reset_path', '/reset-password' );
+    $path = '/' . ltrim( $path, '/' );
 
     return add_query_arg(
         [
             'key'   => rawurlencode( $key ),
             'login' => rawurlencode( $user->user_login ),
         ],
-        $storefront_url . '/reset-password'
+        $storefront_url . $path
     );
 }, 10, 3 );

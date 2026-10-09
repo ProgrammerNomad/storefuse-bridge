@@ -1171,11 +1171,29 @@ The current `module-checkout-redirect` builds a URL with `add-to-cart[]` query p
 
 ## Out of Scope (v1.0)
 
-These are valid future features but not needed for v1:
+These remain future or non-goals for Bridge core (see [verified-routes.md](docs/verified-routes.md) for what v0.1.0 already ships):
 
-- WooCommerce Subscriptions support
+- WooCommerce Subscriptions API shaping (detection only on `/status` today)
 - Multisite / network activation
-- REST API authentication (all endpoints are public read-only)
-- Webhooks / push notifications to the storefront
+- JWT or token-first auth (WordPress cookies + nonces are the v0.1 model)
+- Generic push notifications to mobile apps (ISR webhooks to Next.js are optional; see webhooks module)
 - A/B testing banners
-- Blog/posts API (WordPress REST already covers this natively)
+
+---
+
+## Addendum - multi-client docs and extensions (2026)
+
+This phase aligns Bridge with **one API contract, many clients**:
+
+| Deliverable | Location |
+|-------------|----------|
+| Verified route matrix + session test checklist | [docs/verified-routes.md](docs/verified-routes.md) |
+| API reference reconciled to PHP | [docs/api-reference.md](docs/api-reference.md) |
+| Next.js / Flutter / generic client guides | [docs/clients/](docs/clients/) |
+| Filter catalog (v0.1 companions) | [docs/extensions.md](docs/extensions.md) |
+| Module registration spec (v0.2, no code yet) | [docs/extension-api-v0.2.md](docs/extension-api-v0.2.md) |
+| Flutter planning repo (no app binary yet) | [storefuse-flutter](https://github.com/ProgrammerNomad/storefuse-flutter) |
+
+**Execution order:** P0 code fixes → verified routes → api-reference → extensions docs → client READMEs → Flutter roadmap docs.
+
+**Later:** Implement `storefuse_bridge_modules` per extension-api-v0.2.md after filter docs are stable.

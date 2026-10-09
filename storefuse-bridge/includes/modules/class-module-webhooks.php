@@ -119,7 +119,9 @@ class StoreFuse_Bridge_Module_Webhooks extends StoreFuse_Bridge_Module {
             return;
         }
 
-        $endpoint = trailingslashit( esc_url_raw( $storefront_url ) ) . 'api/revalidate';
+        $path     = (string) StoreFuse_Bridge_Settings::get( 'storefront_revalidate_path', '/api/revalidate' );
+        $path     = '/' . ltrim( $path, '/' );
+        $endpoint = rtrim( esc_url_raw( $storefront_url ), '/' ) . $path;
 
         // Map internal type to the event string the Next.js route expects.
         $event_map = [
@@ -151,6 +153,64 @@ class StoreFuse_Bridge_Module_Webhooks extends StoreFuse_Bridge_Module {
         ] );
 
         $this->log_delivery( $type, $slug, $response );
+    }
+
+    /**
+     * Blocking test request for wp-admin (logs result).
+     *
+     * @return array{ok:bool,status:string,error:string}
+     */
+    public function test_connection(): array {
+        $storefront_url = StoreFuse_Bridge_Settings::get( 'storefront_url', '' );
+        $secret         = StoreFuse_Bridge_Settings::get( 'revalidation_secret', '' );
+
+        if ( ! $storefront_url || ! $secret ) {
+            return [
+                'ok'     => false,
+                'status' => 'error',
+                'error'  => __( 'Storefront URL and revalidation secret are required.', 'storefuse-bridge' ),
+            ];
+        }
+
+        $path     = (string) StoreFuse_Bridge_Settings::get( 'storefront_revalidate_path', '/api/revalidate' );
+        $path     = '/' . ltrim( $path, '/' );
+        $endpoint = rtrim( esc_url_raw( $storefront_url ), '/' ) . $path;
+
+        $body    = wp_json_encode( [
+            'event' => 'settings.updated',
+            'data'  => (object) [],
+        ] );
+        $payload = (string) $body;
+        $signature = hash_hmac( 'sha256', $payload, $secret );
+
+        $response = wp_remote_post( $endpoint, [
+            'headers'  => [
+                'Content-Type'          => 'application/json',
+                'X-StoreFuse-Signature' => $signature,
+            ],
+            'body'     => $payload,
+            'timeout'  => 15,
+            'blocking' => true,
+        ] );
+
+        $this->log_delivery( 'test', '', $response );
+
+        if ( is_wp_error( $response ) ) {
+            return [
+                'ok'     => false,
+                'status' => 'error',
+                'error'  => $response->get_error_message(),
+            ];
+        }
+
+        $code = (string) wp_remote_retrieve_response_code( $response );
+        $ok   = in_array( (int) $code, [ 200, 204 ], true );
+
+        return [
+            'ok'     => $ok,
+            'status' => $code,
+            'error'  => $ok ? '' : wp_remote_retrieve_body( $response ),
+        ];
     }
 
     // ── Delivery Log ──────────────────────────────────────────────────

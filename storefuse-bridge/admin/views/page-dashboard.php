@@ -1,4 +1,42 @@
-<?php defined( 'ABSPATH' ) || exit; ?>
+<?php
+defined( 'ABSPATH' ) || exit;
+
+$modules   = StoreFuse_Bridge_Module_Status::get_module_map();
+$labels    = StoreFuse_Bridge_Admin::module_labels();
+$features  = StoreFuse_Bridge_WC_Compat::features();
+$settings  = StoreFuse_Bridge_Settings::all();
+$locations = get_nav_menu_locations();
+$last_flush = get_option( 'storefuse_bridge_last_flush_at', [] );
+$docs_url  = plugins_url( '../docs/', dirname( __FILE__ ) );
+
+$readiness = [
+    [
+        'label' => __( 'Header menu assigned (storefuse-header)', 'storefuse-bridge' ),
+        'ok'    => ! empty( $locations['storefuse-header'] ),
+        'link'  => admin_url( 'nav-menus.php' ),
+    ],
+    [
+        'label' => __( 'Footer menu assigned (storefuse-footer)', 'storefuse-bridge' ),
+        'ok'    => ! empty( $locations['storefuse-footer'] ),
+        'link'  => admin_url( 'nav-menus.php' ),
+    ],
+    [
+        'label' => __( 'Storefront URL configured', 'storefuse-bridge' ),
+        'ok'    => ! empty( $settings['storefront_url'] ),
+        'link'  => admin_url( 'admin.php?page=storefuse-bridge-storefront' ),
+    ],
+    [
+        'label' => __( 'Site uses HTTPS (recommended)', 'storefuse-bridge' ),
+        'ok'    => is_ssl(),
+        'link'  => '',
+    ],
+    [
+        'label' => __( 'CORS origins listed (when storefront is external)', 'storefuse-bridge' ),
+        'ok'    => empty( $settings['storefront_url'] ) || ( ! empty( $settings['cors_enabled'] ) && trim( (string) ( $settings['cors_allowed_origins'] ?? '' ) ) !== '' ),
+        'link'  => admin_url( 'admin.php?page=storefuse-bridge-api' ),
+    ],
+];
+?>
 <div class="wrap sfb-admin">
     <h1>
         <?php esc_html_e( 'StoreFuse Bridge', 'storefuse-bridge' ); ?>
@@ -7,64 +45,48 @@
 
     <div class="sfb-dashboard-grid">
 
-        <!-- Status Card -->
         <div class="sfb-card sfb-card--status">
-            <h2><?php esc_html_e( 'System Status', 'storefuse-bridge' ); ?></h2>
-            <table class="sfb-status-table">
+            <h2><?php esc_html_e( 'Setup readiness', 'storefuse-bridge' ); ?></h2>
+            <table class="sfb-status-table widefat">
+                <?php foreach ( $readiness as $item ) : ?>
                 <tr>
-                    <td><?php esc_html_e( 'Plugin', 'storefuse-bridge' ); ?></td>
-                    <td><span class="sfb-ok">OK</span> StoreFuse Bridge <?php echo esc_html( STOREFUSE_BRIDGE_VERSION ); ?></td>
+                    <td>
+                        <?php if ( $item['ok'] ) : ?>
+                            <span class="sfb-badge sfb-badge--on"><?php esc_html_e( 'OK', 'storefuse-bridge' ); ?></span>
+                        <?php else : ?>
+                            <span class="sfb-badge sfb-badge--off"><?php esc_html_e( 'Todo', 'storefuse-bridge' ); ?></span>
+                        <?php endif; ?>
+                    </td>
+                    <td>
+                        <?php echo esc_html( $item['label'] ); ?>
+                        <?php if ( ! $item['ok'] && $item['link'] ) : ?>
+                            - <a href="<?php echo esc_url( $item['link'] ); ?>"><?php esc_html_e( 'Configure', 'storefuse-bridge' ); ?></a>
+                        <?php endif; ?>
+                    </td>
                 </tr>
-                <tr>
-                    <td>WordPress</td>
-                    <td><span class="sfb-ok">OK</span> <?php echo esc_html( get_bloginfo( 'version' ) ); ?></td>
-                </tr>
-                <tr>
-                    <td>WooCommerce</td>
-                    <td><span class="sfb-ok">OK</span> <?php echo esc_html( StoreFuse_Bridge_WC_Compat::wc_version() ); ?></td>
-                </tr>
-                <tr>
-                    <td>PHP</td>
-                    <td><span class="sfb-ok">OK</span> <?php echo esc_html( PHP_VERSION ); ?></td>
-                </tr>
+                <?php endforeach; ?>
             </table>
         </div>
 
-        <!-- API URL Card -->
         <div class="sfb-card sfb-card--api">
-            <h2><?php esc_html_e( 'API Base URL', 'storefuse-bridge' ); ?></h2>
+            <h2><?php esc_html_e( 'API base URL', 'storefuse-bridge' ); ?></h2>
             <div class="sfb-api-url-row">
                 <code id="sfb-api-url"><?php echo esc_html( get_site_url() . '/wp-json/storefuse/v1' ); ?></code>
-                <button type="button" class="button sfb-copy-btn" data-target="sfb-api-url">
-                    <?php esc_html_e( 'Copy', 'storefuse-bridge' ); ?>
-                </button>
-                <a href="<?php echo esc_url( get_site_url() . '/wp-json/storefuse/v1/status' ); ?>" target="_blank" class="button">
-                    <?php esc_html_e( 'Test Status', 'storefuse-bridge' ); ?>
-                </a>
+                <button type="button" class="button sfb-copy-btn" data-target="sfb-api-url"><?php esc_html_e( 'Copy', 'storefuse-bridge' ); ?></button>
+                <a href="<?php echo esc_url( get_site_url() . '/wp-json/storefuse/v1/status' ); ?>" target="_blank" rel="noopener" class="button"><?php esc_html_e( 'Test /status', 'storefuse-bridge' ); ?></a>
             </div>
         </div>
 
-        <!-- Modules Card -->
         <div class="sfb-card sfb-card--modules">
-            <h2><?php esc_html_e( 'Modules', 'storefuse-bridge' ); ?></h2>
+            <h2><?php esc_html_e( 'Modules (matches GET /status)', 'storefuse-bridge' ); ?></h2>
             <table class="sfb-modules-table widefat">
                 <thead><tr>
                     <th><?php esc_html_e( 'Module', 'storefuse-bridge' ); ?></th>
                     <th><?php esc_html_e( 'Status', 'storefuse-bridge' ); ?></th>
                 </tr></thead>
                 <tbody>
-                <?php
-                $modules = [
-                    'settings'   => __( 'Settings / Navigation / Homepage', 'storefuse-bridge' ),
-                    'products'   => __( 'Products & Categories', 'storefuse-bridge' ),
-                    'search'     => __( 'Search', 'storefuse-bridge' ),
-                    'cart'       => __( 'Cart', 'storefuse-bridge' ),
-                    'checkout'   => __( 'Checkout', 'storefuse-bridge' ),
-                    'content'    => __( 'Reviews & Posts', 'storefuse-bridge' ),
-                    'webhooks'   => __( 'ISR Webhooks', 'storefuse-bridge' ),
-                ];
-                foreach ( $modules as $key => $label ) :
-                    $enabled = (bool) StoreFuse_Bridge_Settings::get( "module_{$key}_enabled", $key !== 'webhooks' );
+                <?php foreach ( $modules as $key => $enabled ) :
+                    $label = $labels[ $key ] ?? ucfirst( $key );
                 ?>
                 <tr>
                     <td><?php echo esc_html( $label ); ?></td>
@@ -80,45 +102,94 @@
                 </tbody>
             </table>
             <p>
-                <a href="<?php echo esc_url( admin_url( 'admin.php?page=storefuse-bridge-advanced' ) ); ?>" class="button">
-                    <?php esc_html_e( 'Manage Modules', 'storefuse-bridge' ); ?>
-                </a>
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=storefuse-bridge-advanced' ) ); ?>" class="button"><?php esc_html_e( 'Manage modules', 'storefuse-bridge' ); ?></a>
             </p>
         </div>
 
-        <!-- Cache Card -->
-        <div class="sfb-card sfb-card--cache">
-            <h2><?php esc_html_e( 'Cache', 'storefuse-bridge' ); ?></h2>
-            <p><?php esc_html_e( 'Product and category data is served from WordPress transient cache. Cache is invalidated automatically when products or categories are saved.', 'storefuse-bridge' ); ?></p>
-            <button type="button" id="sfb-flush-cache" class="button button-secondary">
-                <?php esc_html_e( 'Flush All Cache', 'storefuse-bridge' ); ?>
-            </button>
-            <span id="sfb-flush-result" style="margin-left:10px;"></span>
+        <div class="sfb-card">
+            <h2><?php esc_html_e( 'Features', 'storefuse-bridge' ); ?></h2>
+            <table class="widefat">
+                <tbody>
+                <?php
+                $feature_labels = [
+                    'headless_checkout' => __( 'Headless checkout mode', 'storefuse-bridge' ),
+                    'hpos'              => __( 'WooCommerce HPOS', 'storefuse-bridge' ),
+                    'store_api'         => __( 'WooCommerce Store API', 'storefuse-bridge' ),
+                ];
+                foreach ( $feature_labels as $fk => $fl ) :
+                    $on = ! empty( $features[ $fk ] );
+                ?>
+                <tr>
+                    <td><?php echo esc_html( $fl ); ?></td>
+                    <td>
+                        <span class="sfb-badge sfb-badge--<?php echo $on ? 'on' : 'off'; ?>">
+                            <?php echo $on ? esc_html__( 'Yes', 'storefuse-bridge' ) : esc_html__( 'No', 'storefuse-bridge' ); ?>
+                        </span>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
         </div>
 
-    </div><!-- .sfb-dashboard-grid -->
+        <div class="sfb-card sfb-card--cache">
+            <h2><?php esc_html_e( 'Cache', 'storefuse-bridge' ); ?></h2>
+            <?php if ( ! empty( $last_flush['time'] ) ) : ?>
+                <p class="description">
+                    <?php
+                    printf(
+                        esc_html__( 'Last manual flush: %1$s (%2$s)', 'storefuse-bridge' ),
+                        esc_html( $last_flush['time'] ),
+                        esc_html( $last_flush['group'] ?? 'all' )
+                    );
+                    ?>
+                </p>
+            <?php endif; ?>
+            <p><?php esc_html_e( 'Product and settings data is cached in transients. Use API & Tools for targeted flush groups.', 'storefuse-bridge' ); ?></p>
+            <button type="button" id="sfb-flush-cache" class="button button-secondary" data-group="all"><?php esc_html_e( 'Flush all cache', 'storefuse-bridge' ); ?></button>
+            <span id="sfb-flush-result" style="margin-left:10px;"></span>
+            <p style="margin-top:10px;">
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=storefuse-bridge-api' ) ); ?>"><?php esc_html_e( 'Open API & Tools →', 'storefuse-bridge' ); ?></a>
+            </p>
+        </div>
 
-    <!-- Quick Links -->
+    </div>
+
     <div class="sfb-quick-links">
-        <h2><?php esc_html_e( 'Settings', 'storefuse-bridge' ); ?></h2>
+        <h2><?php esc_html_e( 'Documentation', 'storefuse-bridge' ); ?></h2>
         <div class="sfb-link-grid">
-            <a href="<?php echo esc_url( admin_url( 'admin.php?page=storefuse-bridge-general' ) ); ?>" class="sfb-link-card">
-                <strong><?php esc_html_e( 'General Settings', 'storefuse-bridge' ); ?></strong>
-                <span><?php esc_html_e( 'Announcement bar, policies', 'storefuse-bridge' ); ?></span>
+            <a href="<?php echo esc_url( $docs_url . 'verified-routes.md' ); ?>" class="sfb-link-card" target="_blank" rel="noopener">
+                <strong><?php esc_html_e( 'Verified routes', 'storefuse-bridge' ); ?></strong>
+                <span><?php esc_html_e( 'Auth tiers & session tests', 'storefuse-bridge' ); ?></span>
             </a>
-            <a href="<?php echo esc_url( admin_url( 'admin.php?page=storefuse-bridge-homepage' ) ); ?>" class="sfb-link-card">
-                <strong><?php esc_html_e( 'Homepage', 'storefuse-bridge' ); ?></strong>
-                <span><?php esc_html_e( 'Hero, featured categories', 'storefuse-bridge' ); ?></span>
+            <a href="<?php echo esc_url( $docs_url . 'clients/nextjs.md' ); ?>" class="sfb-link-card" target="_blank" rel="noopener">
+                <strong><?php esc_html_e( 'Next.js client', 'storefuse-bridge' ); ?></strong>
             </a>
-            <a href="<?php echo esc_url( admin_url( 'admin.php?page=storefuse-bridge-social' ) ); ?>" class="sfb-link-card">
-                <strong><?php esc_html_e( 'Social & Trust', 'storefuse-bridge' ); ?></strong>
-                <span><?php esc_html_e( 'Social links, trust badges', 'storefuse-bridge' ); ?></span>
+            <a href="<?php echo esc_url( $docs_url . 'clients/mobile-flutter.md' ); ?>" class="sfb-link-card" target="_blank" rel="noopener">
+                <strong><?php esc_html_e( 'Flutter client', 'storefuse-bridge' ); ?></strong>
             </a>
-            <a href="<?php echo esc_url( admin_url( 'admin.php?page=storefuse-bridge-advanced' ) ); ?>" class="sfb-link-card">
-                <strong><?php esc_html_e( 'Advanced', 'storefuse-bridge' ); ?></strong>
-                <span><?php esc_html_e( 'Module toggles', 'storefuse-bridge' ); ?></span>
+            <a href="<?php echo esc_url( $docs_url . 'admin-guide.md' ); ?>" class="sfb-link-card" target="_blank" rel="noopener">
+                <strong><?php esc_html_e( 'Admin guide', 'storefuse-bridge' ); ?></strong>
+                <span><?php esc_html_e( 'Settings ↔ API registry', 'storefuse-bridge' ); ?></span>
             </a>
         </div>
     </div>
 
-</div><!-- .wrap.sfb-admin -->
+    <div class="sfb-quick-links">
+        <h2><?php esc_html_e( 'Settings', 'storefuse-bridge' ); ?></h2>
+        <div class="sfb-link-grid">
+            <a href="<?php echo esc_url( admin_url( 'admin.php?page=storefuse-bridge-general' ) ); ?>" class="sfb-link-card">
+                <strong><?php esc_html_e( 'General', 'storefuse-bridge' ); ?></strong>
+            </a>
+            <a href="<?php echo esc_url( admin_url( 'admin.php?page=storefuse-bridge-homepage' ) ); ?>" class="sfb-link-card">
+                <strong><?php esc_html_e( 'Homepage', 'storefuse-bridge' ); ?></strong>
+            </a>
+            <a href="<?php echo esc_url( admin_url( 'admin.php?page=storefuse-bridge-storefront' ) ); ?>" class="sfb-link-card">
+                <strong><?php esc_html_e( 'Storefront & clients', 'storefuse-bridge' ); ?></strong>
+            </a>
+            <a href="<?php echo esc_url( admin_url( 'admin.php?page=storefuse-bridge-api' ) ); ?>" class="sfb-link-card">
+                <strong><?php esc_html_e( 'API & tools', 'storefuse-bridge' ); ?></strong>
+            </a>
+        </div>
+    </div>
+</div>

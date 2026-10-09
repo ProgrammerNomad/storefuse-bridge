@@ -54,7 +54,30 @@ class StoreFuse_Bridge_Settings {
      */
     public static function all(): array {
         if ( self::$cache === null ) {
-            self::$cache = (array) get_option( self::OPTION_KEY, [] );
+            $stored   = (array) get_option( self::OPTION_KEY, [] );
+            $settings = array_merge( self::defaults(), $stored );
+
+            // Legacy single "content" toggle → posts + reviews module IDs.
+            if ( array_key_exists( 'module_content_enabled', $settings ) ) {
+                $legacy = (bool) $settings['module_content_enabled'];
+                if ( ! array_key_exists( 'module_posts_enabled', $stored ) ) {
+                    $settings['module_posts_enabled'] = $legacy;
+                }
+                if ( ! array_key_exists( 'module_reviews_enabled', $stored ) ) {
+                    $settings['module_reviews_enabled'] = $legacy;
+                }
+            }
+
+            // Legacy password reset path key → storefront_reset_path.
+            if ( ! array_key_exists( 'storefront_reset_path', $stored ) ) {
+                if ( array_key_exists( 'password_reset_path', $stored ) ) {
+                    $settings['storefront_reset_path'] = $stored['password_reset_path'];
+                } elseif ( array_key_exists( 'password_reset_path', $settings ) ) {
+                    $settings['storefront_reset_path'] = $settings['password_reset_path'];
+                }
+            }
+
+            self::$cache = $settings;
         }
         return self::$cache;
     }
@@ -107,7 +130,8 @@ class StoreFuse_Bridge_Settings {
             'module_search_enabled'     => true,
             'module_cart_enabled'       => true,
             'module_checkout_enabled'   => true,
-            'module_content_enabled'    => true,
+            'module_posts_enabled'      => true,
+            'module_reviews_enabled'    => true,
             'module_webhooks_enabled'   => false,
 
             // Checkout
@@ -116,8 +140,35 @@ class StoreFuse_Bridge_Settings {
             'checkout_page_url'        => '',
 
             // Storefront connection (for webhooks / ISR)
-            'storefront_url'           => '',
-            'revalidation_secret'      => '',
+            'storefront_url'              => '',
+            'storefront_reset_path'       => '/reset-password',
+            'storefront_revalidate_path'  => '/api/revalidate',
+            'revalidation_secret'       => '',
+            'primary_client'              => 'other',
+
+            // CORS (browser clients)
+            'cors_enabled'          => false,
+            'cors_allowed_origins'  => '',
+
+            // Homepage - featured categories (JSON array)
+            'featured_categories' => [],
+
+            // Homepage product sections
+            'homepage_best_sellers_heading'  => 'Best Sellers',
+            'homepage_best_sellers_source' => 'best-selling',
+            'homepage_best_sellers_count'  => 8,
+            'homepage_best_sellers_ids'    => '',
+
+            'homepage_new_arrivals_heading'   => 'New Arrivals',
+            'homepage_new_arrivals_count'     => 8,
+            'homepage_new_arrivals_category'  => '',
+
+            'homepage_promo_banner_enabled'  => false,
+            'homepage_promo_banner_headline' => '',
+            'homepage_promo_banner_body'     => '',
+            'homepage_promo_banner_cta_label'  => '',
+            'homepage_promo_banner_cta_href'   => '',
+            'homepage_promo_banner_bg_color'   => '#1e293b',
         ];
     }
 }

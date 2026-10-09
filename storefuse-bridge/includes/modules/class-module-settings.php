@@ -189,18 +189,47 @@ class StoreFuse_Bridge_Module_Settings extends StoreFuse_Bridge_Module {
         if ( is_string( $raw ) ) {
             $raw = json_decode( $raw, true ) ?? [];
         }
-        return is_array( $raw ) ? $raw : [];
+        if ( ! is_array( $raw ) ) {
+            return [];
+        }
+        return array_values( array_filter( $raw, static function ( $badge ): bool {
+            if ( ! is_array( $badge ) ) {
+                return false;
+            }
+            if ( array_key_exists( 'enabled', $badge ) && ! $badge['enabled'] ) {
+                return false;
+            }
+            return ( $badge['title'] ?? '' ) !== '';
+        } ) );
     }
 
     private function build_social_links(): array {
+        $whatsapp = (string) StoreFuse_Bridge_Settings::get( 'social_whatsapp', '' );
+        $whatsapp = $this->normalize_whatsapp_url( $whatsapp );
+
         return [
             'instagram' => StoreFuse_Bridge_Settings::get( 'social_instagram' ) ?: null,
             'facebook'  => StoreFuse_Bridge_Settings::get( 'social_facebook' )  ?: null,
             'twitter'   => StoreFuse_Bridge_Settings::get( 'social_twitter' )   ?: null,
             'youtube'   => StoreFuse_Bridge_Settings::get( 'social_youtube' )   ?: null,
             'pinterest' => StoreFuse_Bridge_Settings::get( 'social_pinterest' ) ?: null,
-            'whatsapp'  => StoreFuse_Bridge_Settings::get( 'social_whatsapp' )  ?: null,
+            'whatsapp'  => $whatsapp ?: null,
         ];
+    }
+
+    private function normalize_whatsapp_url( string $value ): string {
+        $value = trim( $value );
+        if ( $value === '' ) {
+            return '';
+        }
+        if ( preg_match( '#^https?://#i', $value ) ) {
+            return esc_url_raw( $value );
+        }
+        $digits = preg_replace( '/\D+/', '', $value );
+        if ( $digits === '' ) {
+            return '';
+        }
+        return 'https://wa.me/' . $digits;
     }
 
     private function build_navigation(): array {
@@ -308,6 +337,9 @@ class StoreFuse_Bridge_Module_Settings extends StoreFuse_Bridge_Module {
             ],
             'featured_categories' => $this->build_featured_categories(),
             'trust_items'         => $this->build_trust_badges(),
+            'best_sellers'        => $this->build_best_sellers_section(),
+            'new_arrivals'        => $this->build_new_arrivals_section(),
+            'promo_banner'        => $this->build_promo_banner_section(),
         ];
     }
 
@@ -325,10 +357,68 @@ class StoreFuse_Bridge_Module_Settings extends StoreFuse_Bridge_Module {
             $raw = json_decode( $raw, true ) ?? [];
         }
         if ( ! is_array( $raw ) || empty( $raw ) ) {
-            // Fall back to top 6 categories
             return array_slice( $this->get_top_categories(), 0, 6 );
         }
-        return $raw;
+
+        $result = [];
+        foreach ( $raw as $item ) {
+            if ( ! is_array( $item ) ) {
+                continue;
+            }
+            $term_id = (int) ( $item['category_id'] ?? $item['id'] ?? 0 );
+            if ( ! $term_id ) {
+                continue;
+            }
+            $term = get_term( $term_id, 'product_cat' );
+            if ( ! $term || is_wp_error( $term ) ) {
+                continue;
+            }
+            $thumbnail_id = (int) get_term_meta( $term->term_id, 'thumbnail_id', true );
+            $result[]     = [
+                'id'        => (string) $term->term_id,
+                'label'     => (string) ( $item['label'] ?? $term->name ),
+                'slug'      => $term->slug,
+                'href'      => '/category/' . $term->slug,
+                'image_url' => $thumbnail_id ? wp_get_attachment_image_url( $thumbnail_id, 'medium' ) : null,
+                'icon'      => (string) ( $item['icon'] ?? get_term_meta( $term->term_id, 'storefuse_icon', true ) ),
+                'color'     => (string) ( $item['color'] ?? '' ),
+            ];
+        }
+
+        return $result ?: array_slice( $this->get_top_categories(), 0, 6 );
+    }
+
+    private function build_best_sellers_section(): array {
+        $s = StoreFuse_Bridge_Settings::all();
+        return [
+            'heading' => (string) ( $s['homepage_best_sellers_heading'] ?? 'Best Sellers' ),
+            'source'  => (string) ( $s['homepage_best_sellers_source'] ?? 'best-selling' ),
+            'count'   => (int) ( $s['homepage_best_sellers_count'] ?? 8 ),
+            'ids'     => array_filter( array_map( 'absint', explode( ',', (string) ( $s['homepage_best_sellers_ids'] ?? '' ) ) ) ),
+        ];
+    }
+
+    private function build_new_arrivals_section(): array {
+        $s = StoreFuse_Bridge_Settings::all();
+        return [
+            'heading'  => (string) ( $s['homepage_new_arrivals_heading'] ?? 'New Arrivals' ),
+            'count'    => (int) ( $s['homepage_new_arrivals_count'] ?? 8 ),
+            'category' => sanitize_title( (string) ( $s['homepage_new_arrivals_category'] ?? '' ) ),
+        ];
+    }
+
+    private function build_promo_banner_section(): array {
+        $s = StoreFuse_Bridge_Settings::all();
+        return [
+            'enabled'  => (bool) ( $s['homepage_promo_banner_enabled'] ?? false ),
+            'headline' => (string) ( $s['homepage_promo_banner_headline'] ?? '' ),
+            'body'     => (string) ( $s['homepage_promo_banner_body'] ?? '' ),
+            'cta'      => [
+                'label' => (string) ( $s['homepage_promo_banner_cta_label'] ?? '' ),
+                'href'  => (string) ( $s['homepage_promo_banner_cta_href'] ?? '' ),
+            ],
+            'bg_color' => (string) ( $s['homepage_promo_banner_bg_color'] ?? '#1e293b' ),
+        ];
     }
 
     // ── URL helpers ──────────────────────────────────────────────────────────

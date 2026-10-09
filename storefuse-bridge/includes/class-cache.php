@@ -57,6 +57,57 @@ class StoreFuse_Bridge_Cache {
             delete_transient( $full_key );
         }
         delete_option( 'storefuse_bridge_cache_keys' );
+        self::record_flush( 'all' );
+    }
+
+    /**
+     * Flush a logical cache group (admin tools).
+     *
+     * @param string $group all|products|settings|navigation|homepage|search
+     */
+    public static function flush_group( string $group ): void {
+        switch ( $group ) {
+            case 'products':
+                self::invalidate_products();
+                break;
+            case 'settings':
+                self::invalidate_settings();
+                delete_transient( self::PREFIX . self::settings_key() );
+                break;
+            case 'navigation':
+                self::invalidate_navigation();
+                break;
+            case 'homepage':
+                delete_transient( self::PREFIX . self::homepage_key() );
+                break;
+            case 'search':
+                // Search reads live product data; bust product list caches.
+                self::invalidate_products();
+                break;
+            case 'all':
+            default:
+                self::flush_all();
+                return;
+        }
+        self::record_flush( $group );
+    }
+
+    /**
+     * Persist last manual flush timestamp for the dashboard.
+     */
+    public static function record_flush( string $group ): void {
+        update_option(
+            'storefuse_bridge_last_flush_at',
+            [
+                'time'  => current_time( 'mysql' ),
+                'group' => $group,
+            ],
+            false
+        );
+    }
+
+    public static function search_key_prefix(): string {
+        return 'search_';
     }
 
     /**

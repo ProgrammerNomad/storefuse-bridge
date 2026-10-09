@@ -1,22 +1,8 @@
 # StoreFuse Bridge
 
-**The official WordPress/WooCommerce companion plugin for [StoreFuse](https://github.com/ProgrammerNomad/storefuse).**
+**Headless WooCommerce REST API** for Next.js, Flutter, and any web or mobile client.
 
-StoreFuse Bridge exposes your WordPress site's identity, navigation, store configuration, and homepage content as a clean REST API - so your headless StoreFuse storefront can be fully dynamic without hardcoding anything.
-
----
-
-## What It Does
-
-When you run a headless storefront with StoreFuse + Next.js, many things that WordPress manages natively (logo, favicon, navigation menus, site name, announcement bars) are not available through the standard WooCommerce REST API. This plugin fills that gap.
-
-It adds a single, well-structured API namespace:
-
-```
-/wp-json/storefuse/v1/
-```
-
-Your Next.js storefront calls this once at startup, and everything - logo, nav, currency, announcement bar, trust badges, social links - is live data from WordPress.
+StoreFuse Bridge exposes a single versioned namespace - `/wp-json/storefuse/v1/*` - with storefront-shaped JSON (products, cart, checkout, account, orders, settings). Clients never need WooCommerce consumer keys or raw `wc/v3` responses.
 
 ---
 
@@ -28,52 +14,65 @@ Your Next.js storefront calls this once at startup, and everything - logo, nav, 
 
 ---
 
-## Endpoints
+## Quick start
 
-| Endpoint | Description |
-|---|---|
-| `GET /storefuse/v1/settings` | Site identity, currency, store config, navigation, social links |
-| `GET /storefuse/v1/navigation` | Header and footer nav menus |
-| `GET /storefuse/v1/homepage` | Hero content, featured categories, announcement bar |
-| `GET /storefuse/v1/status` | Health check - confirms plugin is active |
-
-Full API reference: [docs/api-reference.md](docs/api-reference.md)
+1. Install and activate **StoreFuse Bridge** on your WordPress store.
+2. Open **StoreFuse → Advanced** to set module toggles, storefront URL, and ISR webhook secret.
+3. Point your client at `{WOO_URL}/wp-json/storefuse/v1`.
+4. Call `GET /status` to confirm version and enabled modules.
 
 ---
 
-## Installation
+## API overview
 
-1. Download the latest release zip from [Releases](../../releases)
-2. In WordPress admin → Plugins → Add New → Upload Plugin
-3. Activate **StoreFuse Bridge**
-4. Go to **WooCommerce → StoreFuse** to configure
+| Area | Examples |
+|------|----------|
+| Health | `GET /status` |
+| Store config | `GET /settings`, `/navigation`, `/homepage` |
+| Catalog | `GET /products`, `/categories`, `/search` |
+| Session | `GET /cart`, `POST /cart/add` (see nonce headers below) |
+| Auth | `GET /auth/nonce`, `POST /auth/login`, `GET /auth/me` |
+| Customer | `GET /orders`, `/account`, `/wishlist` (auth cookie) |
+| Checkout | `GET /checkout/config`, `POST /checkout`, `POST /checkout/redirect-url` |
+
+**Full route matrix (audited from PHP):** [docs/verified-routes.md](docs/verified-routes.md)  
+**Payload reference:** [docs/api-reference.md](docs/api-reference.md)
+
+### Auth at a glance
+
+- **Public catalog** - no credentials.
+- **Cart/checkout writes** - WooCommerce session cookie + `X-WC-Nonce`.
+- **Login/register/logout** - `GET /auth/nonce` then `X-WP-Nonce` on POST.
+- **Account/order mutations** - WordPress auth cookie + `X-WP-Nonce`.
+
+Do not cache credentialed responses on shared CDNs.
 
 ---
 
-## Usage in StoreFuse
+## Client guides
 
-In your `storefuse.config.ts`:
+| Client | Guide |
+|--------|--------|
+| Next.js / StoreFuse web | [docs/clients/nextjs.md](docs/clients/nextjs.md) |
+| Flutter / mobile | [docs/clients/mobile-flutter.md](docs/clients/mobile-flutter.md) |
+| Other SPAs | [docs/clients/generic-web.md](docs/clients/generic-web.md) |
 
-```ts
-export default defineStoreFuseConfig({
-  bridge: {
-    url: process.env.WOO_URL, // same as your WooCommerce URL
-  },
-  // ... rest of config
-});
-```
+---
 
-The storefront fetches settings once on startup and makes them available via `useSiteSettings()` throughout the theme.
+## Extensions
+
+Companion WordPress plugins can extend responses via `storefuse_bridge_*` filters without forking Bridge. See [docs/extensions.md](docs/extensions.md). Formal module registration is specified for v0.2 in [docs/extension-api-v0.2.md](docs/extension-api-v0.2.md) (not implemented in 0.1.0).
 
 ---
 
 ## Development
 
-See [PLAN.md](PLAN.md) for the full development roadmap.  
-See [docs/architecture.md](docs/architecture.md) for plugin internals.
+- [PLAN.md](PLAN.md) - roadmap and principles  
+- [docs/architecture.md](docs/architecture.md) - module layout and caching  
+- [docs/README.md](docs/README.md) - documentation index  
 
 ---
 
 ## License
 
-GPL-2.0-or-later - same as WordPress.
+GPL-2.0-or-later

@@ -60,16 +60,43 @@ class StoreFuse_Bridge_Module_Status extends StoreFuse_Bridge_Module {
      *
      * @return array<string, bool>
      */
+    public static function get_module_map(): array {
+        return ( new self() )->module_map();
+    }
+
+    /**
+     * @return array<string, bool>
+     */
     private function module_map(): array {
-        return [
-            'settings'   => (bool) StoreFuse_Bridge_Settings::get( 'module_settings_enabled',   true ),
-            'products'   => (bool) StoreFuse_Bridge_Settings::get( 'module_products_enabled',   true ),
-            'categories' => (bool) StoreFuse_Bridge_Settings::get( 'module_categories_enabled', true ),
-            'search'     => (bool) StoreFuse_Bridge_Settings::get( 'module_search_enabled',     true ),
-            'cart'       => (bool) StoreFuse_Bridge_Settings::get( 'module_cart_enabled',       true ),
-            'checkout'   => (bool) StoreFuse_Bridge_Settings::get( 'module_checkout_enabled',   true ),
-            'content'    => (bool) StoreFuse_Bridge_Settings::get( 'module_content_enabled',    true ),
-            'webhooks'   => (bool) StoreFuse_Bridge_Settings::get( 'module_webhooks_enabled',   false ),
+        $map = [
+            'status' => true,
+            'auth'   => true,
         ];
+
+        $toggleable = [
+            'settings'   => StoreFuse_Bridge_Module_Settings::class,
+            'products'   => StoreFuse_Bridge_Module_Products::class,
+            'categories' => StoreFuse_Bridge_Module_Categories::class,
+            'search'     => StoreFuse_Bridge_Module_Search::class,
+            'attributes' => StoreFuse_Bridge_Module_Attributes::class,
+            'tags'       => StoreFuse_Bridge_Module_Tags::class,
+            'cart'       => StoreFuse_Bridge_Module_Cart::class,
+            'checkout'   => StoreFuse_Bridge_Module_Checkout::class,
+            'account'    => StoreFuse_Bridge_Module_Account::class,
+            'orders'     => StoreFuse_Bridge_Module_Orders::class,
+            'addresses'  => StoreFuse_Bridge_Module_Addresses::class,
+            'wishlist'   => StoreFuse_Bridge_Module_Wishlist::class,
+            'reviews'    => StoreFuse_Bridge_Module_Reviews::class,
+            'posts'      => StoreFuse_Bridge_Module_Posts::class,
+            'utils'      => StoreFuse_Bridge_Module_Utils::class,
+            'downloads'  => StoreFuse_Bridge_Module_Downloads::class,
+            'webhooks'   => StoreFuse_Bridge_Module_Webhooks::class,
+        ];
+
+        foreach ( $toggleable as $id => $class ) {
+            $map[ $id ] = ( new $class() )->is_enabled();
+        }
+
+        return $map;
     }
 }

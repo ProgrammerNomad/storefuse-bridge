@@ -18,6 +18,34 @@ The plugin has **no frontend output**. It adds nothing to the WordPress theme. T
 
 ---
 
+## Multi-client architecture
+
+StoreFuse Bridge is **one backend** for many frontends. All clients consume the same `/storefuse/v1` envelopes (`schema`, `api_version`, `data`).
+
+```
+                    ┌─────────────────┐
+   Next.js (web) ──►│                 │
+   Flutter (app) ──►│  storefuse/v1   │──► WooCommerce + WordPress
+   Other SPA    ──►│                 │
+                    └─────────────────┘
+```
+
+| Concern | Shared | Per client |
+|---------|--------|------------|
+| Product/cart/order JSON shapes | Yes | - |
+| Auth mechanism | WP cookies + WC session | Cookie jar vs browser `credentials` |
+| CSRF nonces | Same headers (`X-WP-Nonce`, `X-WC-Nonce`) | How nonces are stored/refreshed |
+| HTTP caching | Public tier only | ISR (Next.js) vs no cache (mobile) |
+| CORS | WP/server config | Browser needs allowed origin; native does not |
+
+Client guides: [clients/nextjs.md](clients/nextjs.md), [clients/mobile-flutter.md](clients/mobile-flutter.md), [clients/generic-web.md](clients/generic-web.md).
+
+**JWT or token-first mobile auth** is explicitly out of scope for v0.1.0; cookies remain the compatibility layer with WooCommerce extensions.
+
+Verified routes and auth tiers: [verified-routes.md](verified-routes.md).
+
+---
+
 ## Folder Structure
 
 ```
@@ -581,7 +609,7 @@ The `success()` method wraps data in the standard envelope:
 ```json
 {
   "schema": "storefuse.product.v1",
-  "api_version": "1.0.0",
+  "api_version": "0.1.0",
   "data": {
     "...actual response data"
   }
@@ -595,7 +623,7 @@ Why the envelope matters:
 
 Every response includes standard headers:
 ```
-X-StoreFuse-Bridge-Version: 1.0.0
+X-StoreFuse-Bridge-Version: 0.1.0
 X-StoreFuse-Cache: HIT | MISS
 Cache-Control: public, max-age=600
 Access-Control-Allow-Origin: *  (or configured origin)
