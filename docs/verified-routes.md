@@ -1,10 +1,10 @@
-# Verified routes (StoreFuse Bridge v1.0.0)
+# Verified routes (StoreFuse Bridge v1.0.1)
 
 This matrix is audited from `register_rest_route()` calls under the `storefuse/v1` namespace in PHP. Use it as the source of truth for client docs and Flutter phase planning.
 
 **Base URL:** `{site}/wp-json/storefuse/v1`
 
-**Plugin version audited:** `1.0.0` (`STOREFUSE_BRIDGE_VERSION`)
+**Plugin version audited:** `1.0.1` (`STOREFUSE_BRIDGE_VERSION`)
 
 ---
 

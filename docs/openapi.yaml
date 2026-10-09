@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: StoreFuse Bridge API
-  version: 1.0.0
+  version: 1.0.1
   description: |
     Headless WooCommerce REST API. Full shapes: verified-routes.md and api-reference.md.
 servers:

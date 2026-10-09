@@ -35,6 +35,11 @@ $readiness = [
         'ok'    => empty( $settings['storefront_url'] ) || ( ! empty( $settings['cors_enabled'] ) && trim( (string) ( $settings['cors_allowed_origins'] ?? '' ) ) !== '' ),
         'link'  => admin_url( 'admin.php?page=storefuse-bridge-api' ),
     ],
+    [
+        'label' => __( 'Primary client selected (Next.js / Flutter / Other)', 'storefuse-bridge' ),
+        'ok'    => ! empty( $settings['primary_client'] ) && ( $settings['primary_client'] ?? 'other' ) !== 'other',
+        'link'  => admin_url( 'admin.php?page=storefuse-bridge-storefront' ),
+    ],
 ];
 ?>
 <div class="wrap sfb-admin">
@@ -161,6 +166,10 @@ $readiness = [
             <a href="<?php echo esc_url( $docs_url ); ?>" class="sfb-link-card" target="_blank" rel="noopener">
                 <strong><?php esc_html_e( 'Documentation on GitHub', 'storefuse-bridge' ); ?></strong>
                 <span><?php esc_html_e( 'API reference, client guides, admin guide, extensions', 'storefuse-bridge' ); ?></span>
+            </a>
+            <a href="<?php echo esc_url( str_replace( 'README.md', 'staging-smoke.md', $docs_url ) ); ?>" class="sfb-link-card" target="_blank" rel="noopener">
+                <strong><?php esc_html_e( 'Staging smoke checklist', 'storefuse-bridge' ); ?></strong>
+                <span><?php esc_html_e( 'CORS, idempotency, cart session — run before production', 'storefuse-bridge' ); ?></span>
             </a>
         </div>
     </div>

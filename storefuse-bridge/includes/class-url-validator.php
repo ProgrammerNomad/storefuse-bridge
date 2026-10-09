@@ -40,6 +40,27 @@ class StoreFuse_Bridge_Url_Validator {
     }
 
     /**
+     * Validate a full webhook URL immediately before outbound HTTP.
+     *
+     * @return true|WP_Error
+     */
+    public static function validate_webhook_endpoint( string $endpoint ): bool|WP_Error {
+        $parts = wp_parse_url( $endpoint );
+        if ( ! is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
+            return new WP_Error( 'invalid_url', 'URL is malformed.' );
+        }
+        $base = $parts['scheme'] . '://' . $parts['host'];
+        if ( ! empty( $parts['port'] ) ) {
+            $base .= ':' . $parts['port'];
+        }
+        $base_check = self::validate_webhook_base_url( $base );
+        if ( is_wp_error( $base_check ) ) {
+            return $base_check;
+        }
+        return true;
+    }
+
+    /**
      * @return list<string>
      */
     private static function resolve_host_ips( string $host ): array {

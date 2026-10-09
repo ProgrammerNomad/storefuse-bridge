@@ -142,10 +142,8 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
      * requests.  Public endpoint - no auth required.
      */
     public function get_nonce( WP_REST_Request $request ): WP_REST_Response {
-        $ip = sanitize_text_field(
-            (string) ( $request->get_header( 'x-forwarded-for' ) ?: ( $_SERVER['REMOTE_ADDR'] ?? 'unknown' ) )
-        );
-        $throttle = StoreFuse_Bridge_Auth::throttle( 'auth_nonce', substr( $ip, 0, 64 ) );
+        $ip = StoreFuse_Bridge_Http_Request::client_ip( $request );
+        $throttle = StoreFuse_Bridge_Auth::throttle( 'auth_nonce', 'ip:' . substr( $ip, 0, 64 ) );
         if ( $throttle ) {
             return $throttle;
         }
@@ -213,15 +211,16 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
 
         do_action( 'storefuse_bridge_login_attempt', $email, $request );
 
-        $throttle = StoreFuse_Bridge_Auth::throttle( 'login', strtolower( $email ) );
-        if ( $throttle ) {
-            return $throttle;
+        $email_key = 'email:' . strtolower( $email );
+        if ( StoreFuse_Bridge_Auth::is_throttled( 'login', $email_key ) ) {
+            return StoreFuse_Bridge_Errors::validation_error( 'Too many attempts. Please try again later.' );
         }
 
         $user = get_user_by( 'email', $email );
         if ( ! $user ) {
             // Return invalid_credentials (not user_not_found) to prevent email enumeration
             do_action( 'storefuse_bridge_login_failed', $email, 'unknown_user', $request );
+            StoreFuse_Bridge_Auth::record_throttle_failure( 'login', $email_key );
             return StoreFuse_Bridge_Errors::invalid_credentials();
         }
 
@@ -236,6 +235,7 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
 
         if ( is_wp_error( $result ) ) {
             do_action( 'storefuse_bridge_login_failed', $email, $result->get_error_code(), $request );
+            StoreFuse_Bridge_Auth::record_throttle_failure( 'login', $email_key );
             return StoreFuse_Bridge_Errors::invalid_credentials();
         }
 

@@ -139,14 +139,17 @@ class StoreFuse_Bridge_Module_Settings extends StoreFuse_Bridge_Module {
             $logo_url = wp_get_attachment_image_url( $custom_logo, 'full' ) ?: null;
         }
 
-        return [
+        $site = [
             'name'        => get_bloginfo( 'name' ),
             'tagline'     => get_bloginfo( 'description' ),
             'url'         => get_site_url(),
             'logo_url'    => $logo_url,
             'favicon_url' => get_site_icon_url() ?: null,
-            'admin_email' => get_bloginfo( 'admin_email' ),
         ];
+        if ( apply_filters( 'storefuse_bridge_expose_admin_email', false ) ) {
+            $site['admin_email'] = get_bloginfo( 'admin_email' );
+        }
+        return $site;
     }
 
     private function build_store_config(): array {
@@ -187,21 +190,14 @@ class StoreFuse_Bridge_Module_Settings extends StoreFuse_Bridge_Module {
     }
 
     private function build_trust_badges(): array {
-        $raw = StoreFuse_Bridge_Settings::get( 'trust_badges', [] );
-        if ( is_string( $raw ) ) {
-            $raw = json_decode( $raw, true ) ?? [];
-        }
-        if ( ! is_array( $raw ) ) {
-            return [];
-        }
-        return array_values( array_filter( $raw, static function ( $badge ): bool {
-            if ( ! is_array( $badge ) ) {
+        $parsed = StoreFuse_Bridge_Settings_Sanitizer::parse_trust_badges(
+            StoreFuse_Bridge_Settings::get( 'trust_badges', [] )
+        );
+        return array_values( array_filter( $parsed, static function ( array $badge ): bool {
+            if ( ! $badge['enabled'] ) {
                 return false;
             }
-            if ( array_key_exists( 'enabled', $badge ) && ! $badge['enabled'] ) {
-                return false;
-            }
-            return ( $badge['title'] ?? '' ) !== '';
+            return $badge['title'] !== '';
         } ) );
     }
 
@@ -354,36 +350,29 @@ class StoreFuse_Bridge_Module_Settings extends StoreFuse_Bridge_Module {
     }
 
     private function build_featured_categories(): array {
-        $raw = StoreFuse_Bridge_Settings::get( 'featured_categories', [] );
-        if ( is_string( $raw ) ) {
-            $raw = json_decode( $raw, true ) ?? [];
-        }
-        if ( ! is_array( $raw ) || empty( $raw ) ) {
+        $parsed = StoreFuse_Bridge_Settings_Sanitizer::parse_featured_categories(
+            StoreFuse_Bridge_Settings::get( 'featured_categories', [] )
+        );
+        if ( $parsed === [] ) {
             return array_slice( $this->get_top_categories(), 0, 6 );
         }
 
         $result = [];
-        foreach ( $raw as $item ) {
-            if ( ! is_array( $item ) ) {
-                continue;
-            }
-            $term_id = (int) ( $item['category_id'] ?? $item['id'] ?? 0 );
-            if ( ! $term_id ) {
-                continue;
-            }
-            $term = get_term( $term_id, 'product_cat' );
+        foreach ( $parsed as $item ) {
+            $term_id = (int) $item['term_id'];
+            $term    = get_term( $term_id, 'product_cat' );
             if ( ! $term || is_wp_error( $term ) ) {
                 continue;
             }
             $thumbnail_id = (int) get_term_meta( $term->term_id, 'thumbnail_id', true );
             $result[]     = [
                 'id'        => (string) $term->term_id,
-                'label'     => (string) ( $item['label'] ?? $term->name ),
+                'label'     => $item['label'] !== '' ? $item['label'] : $term->name,
                 'slug'      => $term->slug,
                 'href'      => '/category/' . $term->slug,
                 'image_url' => $thumbnail_id ? wp_get_attachment_image_url( $thumbnail_id, 'medium' ) : null,
-                'icon'      => (string) ( $item['icon'] ?? get_term_meta( $term->term_id, 'storefuse_icon', true ) ),
-                'color'     => (string) ( $item['color'] ?? '' ),
+                'icon'      => $item['icon'] !== '' ? $item['icon'] : (string) get_term_meta( $term->term_id, 'storefuse_icon', true ),
+                'color'     => $item['color'],
             ];
         }
 

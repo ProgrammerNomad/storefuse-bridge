@@ -58,21 +58,32 @@ class StoreFuse_Bridge_Session {
     }
 
     /**
-     * Return the WooCommerce session customer ID (cart token).
-     * Used in response headers so mobile clients can maintain session continuity.
+     * Raw WooCommerce session customer id (internal diagnostics only).
      */
-    public static function get_cart_token(): string {
+    public static function get_cart_token_legacy(): string {
         if ( ! ( WC()->session instanceof WC_Session ) ) {
             return '';
         }
         return (string) WC()->session->get_customer_id();
     }
 
+    /** @deprecated Use get_cart_token_legacy() or signed header via Cart_Session_Token. */
+    public static function get_cart_token(): string {
+        return self::get_cart_token_legacy();
+    }
+
     /**
-     * Append the X-StoreFuse-Cart-Token header to a response.
+     * Signed session token for clients (v1.1+). Requires cookie jar or this token + server restore.
      */
     public static function set_cart_token_header( WP_REST_Response $response ): WP_REST_Response {
-        $response->header( 'X-StoreFuse-Cart-Token', self::get_cart_token() );
+        if ( class_exists( 'StoreFuse_Bridge_Cart_Session_Token' ) ) {
+            $value = StoreFuse_Bridge_Cart_Session_Token::get_header_value();
+        } else {
+            $value = self::get_cart_token_legacy();
+        }
+        if ( $value !== '' ) {
+            $response->header( 'X-StoreFuse-Cart-Token', $value );
+        }
         return $response;
     }
 }

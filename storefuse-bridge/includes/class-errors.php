@@ -95,6 +95,18 @@ class StoreFuse_Bridge_Errors {
         return self::make( 'email_already_registered', 'An account with this email address already exists.', 409 );
     }
 
+    public static function idempotency_key_reused(): WP_REST_Response {
+        return self::make(
+            'idempotency_key_reused',
+            'This Idempotency-Key was already used with different checkout data.',
+            409
+        );
+    }
+
+    public static function checkout_in_progress(): WP_REST_Response {
+        return self::make( 'checkout_in_progress', 'A checkout with this Idempotency-Key is already in progress.', 409 );
+    }
+
     // ── 410 Gone ─────────────────────────────────────────────────────────────
 
     public static function out_of_stock(): WP_REST_Response {

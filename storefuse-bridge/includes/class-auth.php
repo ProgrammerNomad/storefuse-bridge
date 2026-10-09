@@ -83,7 +83,13 @@ class StoreFuse_Bridge_Auth {
         if ( ! ( WC()->session instanceof WC_Session ) ) {
             return false;
         }
-        return (bool) WC()->session->get_session_cookie();
+        if ( WC()->session->get_session_cookie() ) {
+            return true;
+        }
+        if ( class_exists( 'StoreFuse_Bridge_Cart_Session_Token' ) && StoreFuse_Bridge_Cart_Session_Token::has_active_restore() ) {
+            return (string) WC()->session->get_customer_id() !== '';
+        }
+        return false;
     }
 
     /**
@@ -136,17 +142,29 @@ class StoreFuse_Bridge_Auth {
      *
      * @return WP_REST_Response|null Null when allowed.
      */
-    public static function throttle( string $action, string $identifier ): ?WP_REST_Response {
+    public static function is_throttled( string $action, string $identifier ): bool {
         $max     = (int) apply_filters( 'storefuse_bridge_auth_max_attempts', 10, $action );
+        $key     = 'sfb_throttle_' . sanitize_key( $action ) . '_' . md5( $identifier );
+        return (int) get_transient( $key ) >= $max;
+    }
+
+    public static function record_throttle_failure( string $action, string $identifier ): void {
         $window  = (int) apply_filters( 'storefuse_bridge_auth_throttle_window', 900, $action );
         $key     = 'sfb_throttle_' . sanitize_key( $action ) . '_' . md5( $identifier );
         $attempt = (int) get_transient( $key );
+        set_transient( $key, $attempt + 1, $window );
+    }
 
-        if ( $attempt >= $max ) {
+    /**
+     * Pre-check + increment (nonce endpoint and non-credential limits).
+     *
+     * @return WP_REST_Response|null Null when allowed.
+     */
+    public static function throttle( string $action, string $identifier ): ?WP_REST_Response {
+        if ( self::is_throttled( $action, $identifier ) ) {
             return StoreFuse_Bridge_Errors::validation_error( 'Too many attempts. Please try again later.' );
         }
-
-        set_transient( $key, $attempt + 1, $window );
+        self::record_throttle_failure( $action, $identifier );
         return null;
     }
 

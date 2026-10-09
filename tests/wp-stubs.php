@@ -7,7 +7,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'STOREFUSE_BRIDGE_VERSION' ) ) {
-    define( 'STOREFUSE_BRIDGE_VERSION', '1.0.0' );
+    define( 'STOREFUSE_BRIDGE_VERSION', '1.0.1' );
+}
+
+if ( ! defined( 'DAY_IN_SECONDS' ) ) {
+    define( 'DAY_IN_SECONDS', 86400 );
+}
+
+if ( ! function_exists( 'wp_json_encode' ) ) {
+    function wp_json_encode( $data ) {
+        return json_encode( $data );
+    }
 }
 
 if ( ! class_exists( 'WP_Error' ) ) {

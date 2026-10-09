@@ -140,9 +140,13 @@ class StoreFuse_Bridge_Admin {
         }
         $clean['social_whatsapp'] = sanitize_text_field( $input['social_whatsapp'] ?? '' );
 
-        $clean['trust_badges'] = isset( $input['trust_badges'] ) ? $input['trust_badges'] : '[]';
+        $clean['trust_badges'] = wp_json_encode(
+            StoreFuse_Bridge_Settings_Sanitizer::parse_trust_badges( $input['trust_badges'] ?? '[]' )
+        );
 
-        $clean['featured_categories'] = isset( $input['featured_categories'] ) ? $input['featured_categories'] : '[]';
+        $clean['featured_categories'] = wp_json_encode(
+            StoreFuse_Bridge_Settings_Sanitizer::parse_featured_categories( $input['featured_categories'] ?? '[]' )
+        );
 
         foreach ( [ 'products', 'categories', 'search', 'cart', 'checkout', 'posts', 'reviews', 'webhooks' ] as $mod ) {
             $clean[ "module_{$mod}_enabled" ] = ! empty( $input[ "module_{$mod}_enabled" ] );

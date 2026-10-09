@@ -2,6 +2,25 @@
 
 All notable changes to StoreFuse Bridge follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-03-20
+
+### Fixed
+
+- Checkout **Idempotency-Key** scoped to WC session/user; request fingerprint mismatch returns `idempotency_key_reused`; in-progress lock; cached payload omits `order_key`.
+- Removed duplicate **`woocommerce_checkout_order_created`** dispatch; safer checkout/payment error responses; pending/redirect gateway handling.
+- **`GET /settings`** no longer exposes `admin_email` unless `storefuse_bridge_expose_admin_email` filter is true.
+
+### Added
+
+- Signed **`X-StoreFuse-Cart-Token`** restore path (`StoreFuse_Bridge_Cart_Session_Token`) for mobile session continuity.
+- Trusted-proxy **client IP** helper; login throttle counts failures after bad password, not before attempt.
+- **Settings sanitizer** for trust badges and featured categories JSON.
+- Webhook **endpoint re-validation** immediately before outbound HTTP.
+
+### Security
+
+- Throttling uses trusted `REMOTE_ADDR` unless `storefuse_bridge_trusted_proxies` is configured.
+
 ## [1.0.0] - 2026-03-20
 
 ### Added

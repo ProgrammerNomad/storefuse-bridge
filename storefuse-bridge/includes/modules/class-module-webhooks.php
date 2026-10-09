@@ -129,6 +129,12 @@ class StoreFuse_Bridge_Module_Webhooks extends StoreFuse_Bridge_Module {
         $path     = '/' . ltrim( $path, '/' );
         $endpoint = rtrim( esc_url_raw( $storefront_url ), '/' ) . $path;
 
+        $endpoint_check = StoreFuse_Bridge_Url_Validator::validate_webhook_endpoint( $endpoint );
+        if ( is_wp_error( $endpoint_check ) ) {
+            StoreFuse_Bridge_Logger::warning( 'Webhook endpoint blocked at send', [ 'reason' => $endpoint_check->get_error_message() ] );
+            return;
+        }
+
         // Map internal type to the event string the Next.js route expects.
         $event_map = [
             'product'    => 'product.updated',
@@ -194,6 +200,15 @@ class StoreFuse_Bridge_Module_Webhooks extends StoreFuse_Bridge_Module {
         $path     = (string) StoreFuse_Bridge_Settings::get( 'storefront_revalidate_path', '/api/revalidate' );
         $path     = '/' . ltrim( $path, '/' );
         $endpoint = rtrim( esc_url_raw( $storefront_url ), '/' ) . $path;
+
+        $endpoint_check = StoreFuse_Bridge_Url_Validator::validate_webhook_endpoint( $endpoint );
+        if ( is_wp_error( $endpoint_check ) ) {
+            return [
+                'ok'     => false,
+                'status' => 'error',
+                'error'  => $endpoint_check->get_error_message(),
+            ];
+        }
 
         $body    = wp_json_encode( [
             'event' => 'settings.updated',

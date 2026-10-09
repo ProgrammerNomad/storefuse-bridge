@@ -59,7 +59,6 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         ] );
 
         // Redirect mode: return the native WooCommerce checkout URL for the current cart.
-        // No nonce required - no state is changed, just a URL is returned.
         register_rest_route( $this->namespace, '/checkout/redirect-url', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ $this, 'get_redirect_url' ],
@@ -233,13 +232,9 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         StoreFuse_Bridge_Auth::ensure_cart();
 
         $idempotency_key = sanitize_text_field( (string) ( $request->get_header( 'Idempotency-Key' ) ?? '' ) );
-        if ( $idempotency_key !== '' ) {
-            $cached = get_transient( 'sfb_idem_' . md5( $idempotency_key ) );
-            if ( is_array( $cached ) && isset( $cached['body'], $cached['status'] ) ) {
-                return StoreFuse_Bridge_Response::with_no_store(
-                    new WP_REST_Response( $cached['body'], (int) $cached['status'] )
-                );
-            }
+        $key_check       = StoreFuse_Bridge_Checkout_Idempotency::validate_key( $idempotency_key );
+        if ( $key_check instanceof WP_REST_Response ) {
+            return $key_check;
         }
 
         if ( WC()->cart->is_empty() ) {
@@ -256,7 +251,36 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         $ship_to_different = (bool) $request->get_param( 'ship_to_different_address' );
         $payment_method_id = sanitize_text_field( $request->get_param( 'payment_method' ) );
         $shipping_methods  = (array) $request->get_param( 'shipping_method' );
-        $order_notes       = $request->get_param( 'order_notes' ) ?? '';
+        $order_notes       = (string) ( $request->get_param( 'order_notes' ) ?? '' );
+
+        $scope       = StoreFuse_Bridge_Checkout_Idempotency::scope();
+        $fingerprint = StoreFuse_Bridge_Checkout_Idempotency::fingerprint(
+            $billing,
+            $shipping,
+            $ship_to_different,
+            $payment_method_id,
+            $shipping_methods,
+            $order_notes
+        );
+
+        $storage_key = '';
+        $lock_key    = '';
+        if ( $idempotency_key !== '' ) {
+            $storage_key = StoreFuse_Bridge_Checkout_Idempotency::storage_key( $scope, $idempotency_key );
+            $lock_key    = StoreFuse_Bridge_Checkout_Idempotency::lock_key( $scope, $idempotency_key );
+            $cached      = StoreFuse_Bridge_Checkout_Idempotency::get_cached( $storage_key, $fingerprint );
+            if ( $cached === 'conflict' ) {
+                return StoreFuse_Bridge_Errors::idempotency_key_reused();
+            }
+            if ( is_array( $cached ) ) {
+                return StoreFuse_Bridge_Response::with_no_store(
+                    new WP_REST_Response( $cached['body'], (int) $cached['status'] )
+                );
+            }
+            if ( ! StoreFuse_Bridge_Checkout_Idempotency::acquire_lock( $lock_key ) ) {
+                return StoreFuse_Bridge_Errors::checkout_in_progress();
+            }
+        }
 
         // Validate gateway
         $gateways = WC()->payment_gateways()->get_available_payment_gateways();
@@ -296,88 +320,128 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
             $order_notes
         );
 
-        // Create the order
         try {
-            $order_id = WC()->checkout()->create_order( $checkout_data );
-        } catch ( Exception $e ) {
-            StoreFuse_Bridge_Logger::error( 'Checkout create_order exception', [ 'message' => $e->getMessage() ] );
-            return StoreFuse_Bridge_Errors::checkout_failed( $e->getMessage() );
-        }
+            // Create the order (WC fires woocommerce_checkout_order_created internally).
+            try {
+                $order_id = WC()->checkout()->create_order( $checkout_data );
+            } catch ( Exception $e ) {
+                StoreFuse_Bridge_Logger::error( 'Checkout create_order exception', [ 'message' => $e->getMessage() ] );
+                return StoreFuse_Bridge_Errors::checkout_failed();
+            }
 
-        if ( is_wp_error( $order_id ) ) {
-            StoreFuse_Bridge_Logger::error( 'Checkout create_order failed', [ 'message' => $order_id->get_error_message() ] );
-            return StoreFuse_Bridge_Errors::checkout_failed( $order_id->get_error_message() );
-        }
+            if ( is_wp_error( $order_id ) ) {
+                StoreFuse_Bridge_Logger::error( 'Checkout create_order failed', [ 'message' => $order_id->get_error_message() ] );
+                return StoreFuse_Bridge_Errors::checkout_failed();
+            }
 
-        $order = wc_get_order( $order_id );
-        if ( ! $order ) {
-            StoreFuse_Bridge_Logger::error( 'Checkout order missing after create', [ 'order_id' => (int) $order_id ] );
-            return StoreFuse_Bridge_Errors::checkout_failed( 'Order could not be retrieved after creation.' );
-        }
+            $order = wc_get_order( $order_id );
+            if ( ! $order ) {
+                StoreFuse_Bridge_Logger::error( 'Checkout order missing after create', [ 'order_id' => (int) $order_id ] );
+                return StoreFuse_Bridge_Errors::checkout_failed();
+            }
 
-        do_action( 'woocommerce_checkout_order_created', $order );
-        do_action( 'woocommerce_checkout_order_processed', $order_id, $checkout_data, $order );
+            // WC core does not always fire processed on programmatic create_order; dispatch once for extensions.
+            do_action( 'woocommerce_checkout_order_processed', $order_id, $checkout_data, $order );
 
-        // Process payment
-        try {
-            $payment_result = $gateway->process_payment( $order_id );
-        } catch ( Exception $e ) {
-            $order->update_status( 'failed' );
-            StoreFuse_Bridge_Logger::error( 'Checkout payment exception', [ 'order_id' => $order_id, 'message' => $e->getMessage() ] );
-            return StoreFuse_Bridge_Errors::checkout_failed( $e->getMessage() );
-        }
+            try {
+                $payment_result = $gateway->process_payment( $order_id );
+            } catch ( Exception $e ) {
+                StoreFuse_Bridge_Logger::error( 'Checkout payment exception', [ 'order_id' => $order_id, 'message' => $e->getMessage() ] );
+                return StoreFuse_Bridge_Errors::checkout_failed();
+            }
 
-        if ( ! is_array( $payment_result ) || ( $payment_result['result'] ?? '' ) !== 'success' ) {
-            $notices = wc_get_notices( 'error' );
-            $message = ! empty( $notices )
-                ? wp_strip_all_tags( $notices[0]['notice'] )
-                : 'Payment could not be processed.';
+            $payment_response = $this->interpret_payment_result( $order, $payment_result, $order_id );
+            if ( $payment_response instanceof WP_REST_Response ) {
+                return $payment_response;
+            }
+
+            WC()->cart->empty_cart();
             wc_clear_notices();
-            $order->update_status( 'failed' );
-            StoreFuse_Bridge_Logger::warning( 'Checkout payment declined', [ 'order_id' => $order_id ] );
-            return StoreFuse_Bridge_Errors::checkout_failed( $message );
-        }
 
-        WC()->cart->empty_cart();
-        wc_clear_notices();
-
-        $redirect_url = $payment_result['redirect'] ?? wc_get_endpoint_url(
-            'order-received',
-            $order_id,
-            wc_get_checkout_url()
-        );
-
-        // 'success' = redirect points to our own site (thank-you page)
-        // 'redirect' = redirect points to an external payment gateway
-        $type = str_starts_with( $redirect_url, trailingslashit( get_site_url() ) )
-            ? 'success'
-            : 'redirect';
-
-        $data = apply_filters( 'storefuse_bridge_checkout_result', [
-            'order_id'       => $order_id,
-            'order_key'      => $order->get_order_key(),
-            'order_number'   => $order->get_order_number(),
-            'order_status'   => $order->get_status(),
-            'payment_result' => [
-                'type'         => $type,
-                'redirect_url' => $redirect_url,
-            ],
-        ], $order );
-
-        $response = StoreFuse_Bridge_Response::with_no_store( $this->success( $data, 'storefuse.checkout.v1' ) );
-
-        if ( $idempotency_key !== '' ) {
-            set_transient(
-                'sfb_idem_' . md5( $idempotency_key ),
-                [
-                    'status' => $response->get_status(),
-                    'body'   => $response->get_data(),
-                ],
-                DAY_IN_SECONDS
+            $response = StoreFuse_Bridge_Response::with_no_store(
+                $this->success( $payment_response, 'storefuse.checkout.v1' )
             );
+
+            if ( $idempotency_key !== '' && $storage_key !== '' ) {
+                StoreFuse_Bridge_Checkout_Idempotency::store(
+                    $storage_key,
+                    $fingerprint,
+                    $response->get_status(),
+                    $response->get_data()
+                );
+            }
+
+            return $response;
+        } finally {
+            if ( $lock_key !== '' ) {
+                StoreFuse_Bridge_Checkout_Idempotency::release_lock( $lock_key );
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed>|mixed $payment_result
+     * @return array<string, mixed>|WP_REST_Response
+     */
+    private function interpret_payment_result( WC_Order $order, mixed $payment_result, int $order_id ): array|WP_REST_Response {
+        if ( ! is_array( $payment_result ) ) {
+            StoreFuse_Bridge_Logger::warning( 'Checkout payment invalid result', [ 'order_id' => $order_id ] );
+            return StoreFuse_Bridge_Errors::checkout_failed();
         }
 
-        return $response;
+        $result = (string) ( $payment_result['result'] ?? '' );
+        $redirect_url = (string) ( $payment_result['redirect'] ?? '' );
+
+        if ( $result === 'success' ) {
+            if ( $redirect_url === '' ) {
+                $redirect_url = wc_get_endpoint_url( 'order-received', (string) $order_id, wc_get_checkout_url() );
+            }
+            $type = str_starts_with( $redirect_url, trailingslashit( get_site_url() ) ) ? 'success' : 'redirect';
+
+            return apply_filters( 'storefuse_bridge_checkout_result', [
+                'order_id'       => $order_id,
+                'order_key'      => $order->get_order_key(),
+                'order_number'   => $order->get_order_number(),
+                'order_status'   => $order->get_status(),
+                'payment_result' => [
+                    'type'         => $type,
+                    'redirect_url' => $redirect_url,
+                ],
+            ], $order );
+        }
+
+        if ( $result === 'failure' ) {
+            $notices = wc_get_notices( 'error' );
+            wc_clear_notices();
+            StoreFuse_Bridge_Logger::warning( 'Checkout payment failure', [
+                'order_id' => $order_id,
+                'notice'   => ! empty( $notices ) ? wp_strip_all_tags( $notices[0]['notice'] ) : '',
+            ] );
+            $order->update_status( 'failed' );
+            return StoreFuse_Bridge_Errors::checkout_failed();
+        }
+
+        // Pending / redirect gateways: keep order status, return redirect to client.
+        if ( in_array( $result, [ 'pending', 'redirect' ], true ) || $redirect_url !== '' ) {
+            if ( $redirect_url === '' ) {
+                $redirect_url = wc_get_endpoint_url( 'order-received', (string) $order_id, wc_get_checkout_url() );
+            }
+            $type = str_starts_with( $redirect_url, trailingslashit( get_site_url() ) ) ? 'success' : 'redirect';
+
+            return apply_filters( 'storefuse_bridge_checkout_result', [
+                'order_id'       => $order_id,
+                'order_key'      => $order->get_order_key(),
+                'order_number'   => $order->get_order_number(),
+                'order_status'   => $order->get_status(),
+                'payment_result' => [
+                    'type'         => $type,
+                    'redirect_url' => $redirect_url,
+                ],
+            ], $order );
+        }
+
+        StoreFuse_Bridge_Logger::warning( 'Checkout payment unrecognized result', [ 'order_id' => $order_id, 'result' => $result ] );
+        return StoreFuse_Bridge_Errors::checkout_failed();
     }
 
     /**
@@ -385,9 +449,14 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
      *
      * Redirect checkout mode: returns the WooCommerce checkout URL for the current cart.
      * The storefront redirects the user to this URL; WooCommerce handles everything from here.
-     * No nonce required - this is a read-only URL lookup, no state is changed.
+     * Requires X-WC-Nonce and an active cart session (same as cart writes).
      */
     public function get_redirect_url( WP_REST_Request $request ): WP_REST_Response {
+        $nonce_error = StoreFuse_Bridge_Auth::check_cart_nonce( $request );
+        if ( $nonce_error ) {
+            return $nonce_error;
+        }
+
         StoreFuse_Bridge_Auth::ensure_cart();
 
         if ( WC()->cart->is_empty() ) {

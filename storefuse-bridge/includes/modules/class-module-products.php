@@ -194,8 +194,11 @@ class StoreFuse_Bridge_Module_Products extends StoreFuse_Bridge_Module {
             return StoreFuse_Bridge_Errors::validation_error( 'Consent is required to receive notifications.' );
         }
 
-        $ip = isset( $_SERVER['REMOTE_ADDR'] ) ? (string) wp_unslash( $_SERVER['REMOTE_ADDR'] ) : 'unknown';
-        $throttle = StoreFuse_Bridge_Auth::throttle( 'notify_signup', $ip . ':' . sanitize_email( (string) $request->get_param( 'email' ) ) );
+        $ip = StoreFuse_Bridge_Http_Request::client_ip( $request );
+        $throttle = StoreFuse_Bridge_Auth::throttle(
+            'notify_signup',
+            'ip:' . $ip . ':' . sanitize_email( (string) $request->get_param( 'email' ) )
+        );
         if ( $throttle ) {
             return $throttle;
         }

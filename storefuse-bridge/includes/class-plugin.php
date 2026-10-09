@@ -29,6 +29,7 @@ final class StoreFuse_Bridge {
         $this->load_textdomain();
         $this->check_woocommerce_version();
         StoreFuse_Bridge_Auth::init();
+        StoreFuse_Bridge_Cart_Session_Token::init();
         $this->load_modules();
         $this->register_hooks();
     }

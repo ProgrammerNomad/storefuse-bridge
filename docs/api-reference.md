@@ -1249,6 +1249,8 @@ All StoreFuse routes return the **StoreFuse error envelope** (normalized by `res
 | `cart_item_not_found` | 404 | Cart line key missing |
 | `user_not_found` | 404 | User missing |
 | `email_already_registered` | 409 | Register email already in use |
+| `idempotency_key_reused` | 409 | Same Idempotency-Key with different checkout payload |
+| `checkout_in_progress` | 409 | Concurrent checkout with same Idempotency-Key |
 | `out_of_stock` | 410 | Cart/checkout stock no longer available |
 | `quantity_below_minimum` | 400 | Cart add/update below product min qty |
 | `quantity_above_maximum` | 400 | Cart add/update above product max qty |
@@ -1258,7 +1260,7 @@ All StoreFuse routes return the **StoreFuse error envelope** (normalized by `res
 | `checkout_failed` | 422 | Checkout or payment could not complete |
 | `server_error` | 500 | Unexpected server error |
 
-**Checkout idempotency:** `POST /checkout` accepts optional header `Idempotency-Key`. Replays within 24 hours return the same success payload without creating a duplicate order.
+**Checkout idempotency:** `POST /checkout` accepts optional header `Idempotency-Key` (8–128 chars, `[A-Za-z0-9_-]+`). Keys are scoped to the **WC session or logged-in user**. Replays with the **same checkout fingerprint** within 24 hours return the cached success payload (without `order_key` in the cached body). Reusing a key with **different** cart/checkout data returns `409 idempotency_key_reused`.
 
 ---
 

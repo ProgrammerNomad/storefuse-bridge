@@ -23,6 +23,22 @@
 
 Checkout and webhook failures log via WooCommerce logger (`storefuse-bridge` source). Passwords, nonces, and raw tokens are never logged.
 
+## Checkout idempotency
+
+`Idempotency-Key` is scoped to the WooCommerce session or WordPress user. Cached replay responses **omit `order_key`** to reduce cross-client leakage if a key is reused maliciously. Mismatching checkout fingerprints return `409 idempotency_key_reused`.
+
+## Cart session token
+
+`X-StoreFuse-Cart-Token` (v1.1+) is an **HMAC-signed** value bound to a server-side session record — not a raw WooCommerce customer id. Clients must still protect it like a session secret. Prefer WooCommerce cookies via a cookie jar when possible.
+
+## Rate limiting and IP
+
+IP throttling uses `REMOTE_ADDR` unless `storefuse_bridge_trusted_proxies` lists your reverse proxy. Do not trust `X-Forwarded-For` without that configuration.
+
+## Webhook SSRF (residual)
+
+URL validation at send time reduces SSRF; DNS rebinding/time-of-check-time-of-use risks remain — use a fixed storefront hostname and monitor outbound calls.
+
 ## Mobile auth
 
 See [auth-strategy.md](auth-strategy.md) for cookie vs Application Password trade-offs.

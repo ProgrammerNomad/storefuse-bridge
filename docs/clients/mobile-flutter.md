@@ -13,7 +13,8 @@ Flutter talks to the **same** JSON contract as web: `/wp-json/storefuse/v1`. Ses
 - Use HTTPS to the WordPress site origin (not the storefront domain unless it proxies).
 - Persist cookies per host (`Cookie` header on every request).
 - Set `Cache-Control: no-store` behavior client-side for cart, auth, account, orders.
-- Optionally persist `X-StoreFuse-Cart-Token` from responses for debugging and session recovery.
+- Persist **WooCommerce session cookies** in the jar (required).
+- Send **`X-StoreFuse-Cart-Token`** from responses on subsequent requests when cookies are unavailable (Bridge **1.0.1+** signed restore). Prefer cookie jar; header alone is not login.
 
 Packages such as `cookie_jar` + `dio` or `http` with a custom client are typical; implementation is app-specific.
 
@@ -25,7 +26,7 @@ Packages such as `cookie_jar` + `dio` or `http` with a custom client are typical
 2. `POST /auth/login` with header `X-WP-Nonce: {nonce}`; store all `Set-Cookie` headers in the jar.
 3. `GET /auth/me` - verify session; refresh `nonce` and `cart_nonce` from payload (`logged_in: false` when logged out).
 
-**Application Passwords (optional):** send `Authorization: Basic` or `Bearer` with base64 `username:app_password` on StoreFuse routes after the user creates an app password in wp-admin.
+**Application Passwords (optional):** prefer `Authorization: Basic` with `username:app_password`. Bearer + base64 is compatibility-only (not OAuth2).
 
 Logout: `POST /auth/logout` with `X-WP-Nonce` and auth cookies.
 
