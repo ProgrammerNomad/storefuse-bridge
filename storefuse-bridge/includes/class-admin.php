@@ -109,87 +109,177 @@ class StoreFuse_Bridge_Admin {
 
     public function sanitize_settings( mixed $input ): array {
         if ( ! is_array( $input ) ) {
-            return [];
+            return StoreFuse_Bridge_Settings::all();
         }
 
-        $clean = [];
+        $existing = StoreFuse_Bridge_Settings::all();
+        $patch    = [];
 
-        $clean['announcement_bar_enabled']  = ! empty( $input['announcement_bar_enabled'] );
-        $clean['announcement_bar_text']     = sanitize_text_field( $input['announcement_bar_text'] ?? '' );
-        $clean['announcement_bar_bg_color'] = sanitize_hex_color( $input['announcement_bar_bg_color'] ?? '#E85D04' ) ?: '#E85D04';
-        $clean['announcement_bar_link']     = esc_url_raw( $input['announcement_bar_link'] ?? '' );
+        if ( array_key_exists( 'announcement_bar_enabled', $input ) ) {
+            $patch['announcement_bar_enabled'] = ! empty( $input['announcement_bar_enabled'] );
+        }
+        if ( array_key_exists( 'announcement_bar_text', $input ) ) {
+            $patch['announcement_bar_text'] = sanitize_text_field( $input['announcement_bar_text'] );
+        }
+        if ( array_key_exists( 'announcement_bar_bg_color', $input ) ) {
+            $patch['announcement_bar_bg_color'] = sanitize_hex_color( $input['announcement_bar_bg_color'] ) ?: '#E85D04';
+        }
+        if ( array_key_exists( 'announcement_bar_link', $input ) ) {
+            $patch['announcement_bar_link'] = esc_url_raw( $input['announcement_bar_link'] );
+        }
 
-        $clean['return_policy_days']             = absint( $input['return_policy_days'] ?? 7 );
-        $clean['free_shipping_threshold_label']  = sanitize_text_field( $input['free_shipping_threshold_label'] ?? '' );
-        $clean['free_shipping_threshold_amount'] = (float) ( $input['free_shipping_threshold_amount'] ?? 0 );
+        if ( array_key_exists( 'return_policy_days', $input ) ) {
+            $patch['return_policy_days'] = absint( $input['return_policy_days'] );
+        }
+        if ( array_key_exists( 'free_shipping_threshold_label', $input ) ) {
+            $patch['free_shipping_threshold_label'] = sanitize_text_field( $input['free_shipping_threshold_label'] );
+        }
+        if ( array_key_exists( 'free_shipping_threshold_amount', $input ) ) {
+            $patch['free_shipping_threshold_amount'] = (float) $input['free_shipping_threshold_amount'];
+        }
 
-        $clean['hero_badge_text']          = sanitize_text_field( $input['hero_badge_text'] ?? '' );
-        $clean['hero_headline']            = sanitize_text_field( $input['hero_headline'] ?? '' );
-        $clean['hero_headline_highlight']  = sanitize_text_field( $input['hero_headline_highlight'] ?? '' );
-        $clean['hero_subheadline']         = sanitize_text_field( $input['hero_subheadline'] ?? '' );
-        $clean['hero_cta_primary_label']   = sanitize_text_field( $input['hero_cta_primary_label'] ?? 'Shop Now' );
-        $clean['hero_cta_primary_href']    = esc_url_raw( $input['hero_cta_primary_href'] ?? '/shop' );
-        $clean['hero_cta_secondary_label'] = sanitize_text_field( $input['hero_cta_secondary_label'] ?? '' );
-        $clean['hero_cta_secondary_href']  = esc_url_raw( $input['hero_cta_secondary_href'] ?? '' );
-        $clean['hero_image_id']            = absint( $input['hero_image_id'] ?? 0 );
-        $clean['hero_rating_text']         = sanitize_text_field( $input['hero_rating_text'] ?? '' );
-        $clean['hero_shipping_text']       = sanitize_text_field( $input['hero_shipping_text'] ?? '' );
+        foreach (
+            [
+                'hero_badge_text',
+                'hero_headline',
+                'hero_headline_highlight',
+                'hero_subheadline',
+                'hero_cta_primary_label',
+                'hero_rating_text',
+                'hero_shipping_text',
+            ] as $key
+        ) {
+            if ( array_key_exists( $key, $input ) ) {
+                $patch[ $key ] = sanitize_text_field( $input[ $key ] );
+            }
+        }
+        if ( array_key_exists( 'hero_cta_primary_href', $input ) ) {
+            $patch['hero_cta_primary_href'] = esc_url_raw( $input['hero_cta_primary_href'] );
+        }
+        if ( array_key_exists( 'hero_cta_secondary_label', $input ) ) {
+            $patch['hero_cta_secondary_label'] = sanitize_text_field( $input['hero_cta_secondary_label'] );
+        }
+        if ( array_key_exists( 'hero_cta_secondary_href', $input ) ) {
+            $patch['hero_cta_secondary_href'] = esc_url_raw( $input['hero_cta_secondary_href'] );
+        }
+        if ( array_key_exists( 'hero_image_id', $input ) ) {
+            $patch['hero_image_id'] = absint( $input['hero_image_id'] );
+        }
 
         foreach ( [ 'instagram', 'facebook', 'twitter', 'youtube', 'pinterest' ] as $platform ) {
-            $clean[ "social_{$platform}" ] = esc_url_raw( $input[ "social_{$platform}" ] ?? '' );
+            $key = "social_{$platform}";
+            if ( array_key_exists( $key, $input ) ) {
+                $patch[ $key ] = esc_url_raw( $input[ $key ] );
+            }
         }
-        $clean['social_whatsapp'] = sanitize_text_field( $input['social_whatsapp'] ?? '' );
-
-        $clean['trust_badges'] = wp_json_encode(
-            StoreFuse_Bridge_Settings_Sanitizer::parse_trust_badges( $input['trust_badges'] ?? '[]' )
-        );
-
-        $clean['featured_categories'] = wp_json_encode(
-            StoreFuse_Bridge_Settings_Sanitizer::parse_featured_categories( $input['featured_categories'] ?? '[]' )
-        );
-
-        foreach ( [ 'products', 'categories', 'search', 'cart', 'checkout', 'posts', 'reviews', 'webhooks' ] as $mod ) {
-            $clean[ "module_{$mod}_enabled" ] = ! empty( $input[ "module_{$mod}_enabled" ] );
+        if ( array_key_exists( 'social_whatsapp', $input ) ) {
+            $patch['social_whatsapp'] = sanitize_text_field( $input['social_whatsapp'] );
         }
 
-        $valid_modes                    = [ 'redirect', 'headless' ];
-        $clean['checkout_mode']         = in_array( $input['checkout_mode'] ?? 'redirect', $valid_modes, true )
-            ? $input['checkout_mode']
-            : 'redirect';
-        $clean['checkout_redirect_label'] = sanitize_text_field( $input['checkout_redirect_label'] ?? '' );
-        $clean['checkout_page_url']       = esc_url_raw( $input['checkout_page_url'] ?? '' );
+        if ( array_key_exists( 'trust_badges', $input ) ) {
+            $patch['trust_badges'] = wp_json_encode(
+                StoreFuse_Bridge_Settings_Sanitizer::parse_trust_badges( $input['trust_badges'] )
+            );
+        }
+        if ( array_key_exists( 'featured_categories', $input ) ) {
+            $patch['featured_categories'] = wp_json_encode(
+                StoreFuse_Bridge_Settings_Sanitizer::parse_featured_categories( $input['featured_categories'] )
+            );
+        }
 
-        $clean['storefront_url']             = esc_url_raw( $input['storefront_url'] ?? '' );
-        $reset_path                          = sanitize_text_field( $input['storefront_reset_path'] ?? '/reset-password' );
-        $clean['storefront_reset_path']      = '/' . ltrim( $reset_path, '/' );
-        $revalidate_path                     = sanitize_text_field( $input['storefront_revalidate_path'] ?? '/api/revalidate' );
-        $clean['storefront_revalidate_path'] = '/' . ltrim( $revalidate_path, '/' );
-        $clean['revalidation_secret']        = sanitize_text_field( $input['revalidation_secret'] ?? '' );
+        if ( ! empty( $input['_sfb_save_modules'] ) ) {
+            foreach ( StoreFuse_Bridge_Module_Status::toggleable_module_ids() as $mod ) {
+                $patch[ "module_{$mod}_enabled" ] = ! empty( $input[ "module_{$mod}_enabled" ] );
+            }
+        }
 
-        $valid_clients = [ 'nextjs', 'flutter', 'other' ];
-        $client        = $input['primary_client'] ?? 'other';
-        $clean['primary_client'] = in_array( $client, $valid_clients, true ) ? $client : 'other';
+        if ( array_key_exists( 'checkout_mode', $input ) ) {
+            $valid_modes              = [ 'redirect', 'headless' ];
+            $patch['checkout_mode'] = in_array( $input['checkout_mode'], $valid_modes, true )
+                ? $input['checkout_mode']
+                : 'redirect';
+        }
+        if ( array_key_exists( 'checkout_redirect_label', $input ) ) {
+            $patch['checkout_redirect_label'] = sanitize_text_field( $input['checkout_redirect_label'] );
+        }
+        if ( array_key_exists( 'checkout_page_url', $input ) ) {
+            $patch['checkout_page_url'] = esc_url_raw( $input['checkout_page_url'] );
+        }
 
-        $clean['cors_enabled']         = ! empty( $input['cors_enabled'] );
-        $clean['cors_allowed_origins'] = sanitize_textarea_field( $input['cors_allowed_origins'] ?? '' );
+        if ( array_key_exists( 'storefront_url', $input ) ) {
+            $patch['storefront_url'] = esc_url_raw( $input['storefront_url'] );
+        }
+        if ( array_key_exists( 'storefront_reset_path', $input ) ) {
+            $reset_path                       = sanitize_text_field( $input['storefront_reset_path'] );
+            $patch['storefront_reset_path'] = '/' . ltrim( $reset_path, '/' );
+        }
+        if ( array_key_exists( 'storefront_revalidate_path', $input ) ) {
+            $revalidate_path                       = sanitize_text_field( $input['storefront_revalidate_path'] );
+            $patch['storefront_revalidate_path'] = '/' . ltrim( $revalidate_path, '/' );
+        }
+        if ( array_key_exists( 'revalidation_secret', $input ) ) {
+            $patch['revalidation_secret'] = sanitize_text_field( $input['revalidation_secret'] );
+        }
+        if ( array_key_exists( 'primary_client', $input ) ) {
+            $valid_clients             = [ 'nextjs', 'flutter', 'other' ];
+            $patch['primary_client'] = in_array( $input['primary_client'], $valid_clients, true )
+                ? $input['primary_client']
+                : 'other';
+        }
 
-        $clean['homepage_best_sellers_heading'] = sanitize_text_field( $input['homepage_best_sellers_heading'] ?? 'Best Sellers' );
-        $valid_sources                          = [ 'best-selling', 'featured', 'manual' ];
-        $source                                 = $input['homepage_best_sellers_source'] ?? 'best-selling';
-        $clean['homepage_best_sellers_source']  = in_array( $source, $valid_sources, true ) ? $source : 'best-selling';
-        $clean['homepage_best_sellers_count']   = min( 24, max( 1, absint( $input['homepage_best_sellers_count'] ?? 8 ) ) );
-        $clean['homepage_best_sellers_ids']     = sanitize_text_field( $input['homepage_best_sellers_ids'] ?? '' );
+        if ( array_key_exists( 'cors_enabled', $input ) ) {
+            $patch['cors_enabled'] = ! empty( $input['cors_enabled'] );
+        }
+        if ( array_key_exists( 'cors_allowed_origins', $input ) ) {
+            $patch['cors_allowed_origins'] = sanitize_textarea_field( $input['cors_allowed_origins'] );
+        }
 
-        $clean['homepage_new_arrivals_heading']  = sanitize_text_field( $input['homepage_new_arrivals_heading'] ?? 'New Arrivals' );
-        $clean['homepage_new_arrivals_count']    = min( 24, max( 1, absint( $input['homepage_new_arrivals_count'] ?? 8 ) ) );
-        $clean['homepage_new_arrivals_category'] = sanitize_title( $input['homepage_new_arrivals_category'] ?? '' );
+        if ( array_key_exists( 'homepage_best_sellers_heading', $input ) ) {
+            $patch['homepage_best_sellers_heading'] = sanitize_text_field( $input['homepage_best_sellers_heading'] );
+        }
+        if ( array_key_exists( 'homepage_best_sellers_source', $input ) ) {
+            $valid_sources                         = [ 'best-selling', 'featured', 'manual' ];
+            $patch['homepage_best_sellers_source'] = in_array( $input['homepage_best_sellers_source'], $valid_sources, true )
+                ? $input['homepage_best_sellers_source']
+                : 'best-selling';
+        }
+        if ( array_key_exists( 'homepage_best_sellers_count', $input ) ) {
+            $patch['homepage_best_sellers_count'] = min( 24, max( 1, absint( $input['homepage_best_sellers_count'] ) ) );
+        }
+        if ( array_key_exists( 'homepage_best_sellers_ids', $input ) ) {
+            $patch['homepage_best_sellers_ids'] = sanitize_text_field( $input['homepage_best_sellers_ids'] );
+        }
 
-        $clean['homepage_promo_banner_enabled']  = ! empty( $input['homepage_promo_banner_enabled'] );
-        $clean['homepage_promo_banner_headline'] = sanitize_text_field( $input['homepage_promo_banner_headline'] ?? '' );
-        $clean['homepage_promo_banner_body']     = sanitize_textarea_field( $input['homepage_promo_banner_body'] ?? '' );
-        $clean['homepage_promo_banner_cta_label'] = sanitize_text_field( $input['homepage_promo_banner_cta_label'] ?? '' );
-        $clean['homepage_promo_banner_cta_href']  = esc_url_raw( $input['homepage_promo_banner_cta_href'] ?? '' );
-        $clean['homepage_promo_banner_bg_color']  = sanitize_hex_color( $input['homepage_promo_banner_bg_color'] ?? '#1e293b' ) ?: '#1e293b';
+        if ( array_key_exists( 'homepage_new_arrivals_heading', $input ) ) {
+            $patch['homepage_new_arrivals_heading'] = sanitize_text_field( $input['homepage_new_arrivals_heading'] );
+        }
+        if ( array_key_exists( 'homepage_new_arrivals_count', $input ) ) {
+            $patch['homepage_new_arrivals_count'] = min( 24, max( 1, absint( $input['homepage_new_arrivals_count'] ) ) );
+        }
+        if ( array_key_exists( 'homepage_new_arrivals_category', $input ) ) {
+            $patch['homepage_new_arrivals_category'] = sanitize_title( $input['homepage_new_arrivals_category'] );
+        }
+
+        if ( array_key_exists( 'homepage_promo_banner_enabled', $input ) ) {
+            $patch['homepage_promo_banner_enabled'] = ! empty( $input['homepage_promo_banner_enabled'] );
+        }
+        if ( array_key_exists( 'homepage_promo_banner_headline', $input ) ) {
+            $patch['homepage_promo_banner_headline'] = sanitize_text_field( $input['homepage_promo_banner_headline'] );
+        }
+        if ( array_key_exists( 'homepage_promo_banner_body', $input ) ) {
+            $patch['homepage_promo_banner_body'] = sanitize_textarea_field( $input['homepage_promo_banner_body'] );
+        }
+        if ( array_key_exists( 'homepage_promo_banner_cta_label', $input ) ) {
+            $patch['homepage_promo_banner_cta_label'] = sanitize_text_field( $input['homepage_promo_banner_cta_label'] );
+        }
+        if ( array_key_exists( 'homepage_promo_banner_cta_href', $input ) ) {
+            $patch['homepage_promo_banner_cta_href'] = esc_url_raw( $input['homepage_promo_banner_cta_href'] );
+        }
+        if ( array_key_exists( 'homepage_promo_banner_bg_color', $input ) ) {
+            $patch['homepage_promo_banner_bg_color'] = sanitize_hex_color( $input['homepage_promo_banner_bg_color'] ) ?: '#1e293b';
+        }
+
+        $clean = array_merge( $existing, $patch );
 
         StoreFuse_Bridge_Cache::flush_all();
         do_action( 'storefuse_bridge_settings_updated' );
@@ -392,15 +482,33 @@ class StoreFuse_Bridge_Admin {
      */
     public static function module_route_map(): array {
         return [
-            'products'   => [ 'GET /products', 'GET /products/{slug}' ],
+            'settings'   => [ 'GET /settings', 'GET /navigation', 'GET /homepage' ],
+            'products'   => [ 'GET /products', 'GET /products/{slug}', 'POST /products/{slug}/notify' ],
             'categories' => [ 'GET /categories', 'GET /categories/{slug}' ],
             'search'     => [ 'GET /search' ],
-            'cart'       => [ 'GET /cart', 'POST /cart/items', 'PATCH /cart/items/{key}', 'DELETE /cart/items/{key}' ],
-            'checkout'   => [ 'GET /checkout/config', 'POST /checkout/redirect-url', 'POST /checkout/place-order' ],
+            'attributes' => [ 'GET /attributes' ],
+            'tags'       => [ 'GET /tags' ],
+            'cart'       => [ 'GET /cart', 'POST /cart/add', 'POST /cart/update', 'POST /cart/remove', 'POST /cart/coupon' ],
+            'checkout'   => [ 'GET /checkout/config', 'POST /checkout', 'POST /checkout/redirect-url', 'GET /checkout/payment-methods', 'GET /checkout/shipping-methods' ],
+            'account'    => [ 'GET /account', 'POST /account/change-password' ],
+            'orders'     => [ 'GET /orders', 'GET /orders/{id}', 'POST /orders/{id}/cancel', 'POST /orders/{id}/reorder' ],
+            'addresses'  => [ 'GET /addresses', 'PUT /addresses/billing', 'PUT /addresses/shipping' ],
+            'wishlist'   => [ 'GET /wishlist', 'POST /wishlist/add', 'POST /wishlist/remove' ],
+            'reviews'    => [ 'GET /reviews', 'POST /reviews' ],
             'posts'      => [ 'GET /posts', 'GET /posts/{slug}' ],
-            'reviews'    => [ 'GET /products/{slug}/reviews', 'POST /products/{slug}/reviews' ],
+            'utils'      => [ 'GET /utils/countries', 'GET /utils/pincode/{pincode}' ],
+            'downloads'  => [ 'GET /downloads' ],
             'webhooks'   => [ '(outgoing) POST {storefront}/api/revalidate' ],
         ];
+    }
+
+    /**
+     * Module IDs that show a storefront impact warning when disabled on Advanced.
+     *
+     * @return list<string>
+     */
+    public static function module_disable_warn_ids(): array {
+        return [ 'settings', 'cart', 'checkout', 'account' ];
     }
 
     /**

@@ -124,14 +124,23 @@ class StoreFuse_Bridge_Settings {
             'social_pinterest' => '',
             'social_whatsapp'  => '',
 
-            // Module toggles (all on by default)
+            // Module toggles (all on by default except ISR webhooks)
+            'module_settings_enabled'   => true,
             'module_products_enabled'   => true,
             'module_categories_enabled' => true,
             'module_search_enabled'     => true,
+            'module_attributes_enabled' => true,
+            'module_tags_enabled'       => true,
             'module_cart_enabled'       => true,
             'module_checkout_enabled'   => true,
-            'module_posts_enabled'      => true,
+            'module_account_enabled'    => true,
+            'module_orders_enabled'     => true,
+            'module_addresses_enabled'  => true,
+            'module_wishlist_enabled'   => true,
             'module_reviews_enabled'    => true,
+            'module_posts_enabled'      => true,
+            'module_utils_enabled'      => true,
+            'module_downloads_enabled'  => true,
             'module_webhooks_enabled'   => false,
 
             // Checkout

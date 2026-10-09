@@ -67,13 +67,13 @@ class StoreFuse_Bridge_Module_Status extends StoreFuse_Bridge_Module {
     /**
      * @return array<string, bool>
      */
-    private function module_map(): array {
-        $map = [
-            'status' => true,
-            'auth'   => true,
-        ];
-
-        $toggleable = [
+    /**
+     * REST modules that can be disabled via Advanced settings (module_{id}_enabled).
+     *
+     * @return array<string, class-string<StoreFuse_Bridge_Module>>
+     */
+    public static function toggleable_module_classes(): array {
+        return [
             'settings'   => StoreFuse_Bridge_Module_Settings::class,
             'products'   => StoreFuse_Bridge_Module_Products::class,
             'categories' => StoreFuse_Bridge_Module_Categories::class,
@@ -92,8 +92,31 @@ class StoreFuse_Bridge_Module_Status extends StoreFuse_Bridge_Module {
             'downloads'  => StoreFuse_Bridge_Module_Downloads::class,
             'webhooks'   => StoreFuse_Bridge_Module_Webhooks::class,
         ];
+    }
 
-        foreach ( $toggleable as $id => $class ) {
+    /**
+     * @return list<string>
+     */
+    public static function toggleable_module_ids(): array {
+        return array_keys( self::toggleable_module_classes() );
+    }
+
+    /**
+     * Module IDs that always register routes (not toggleable).
+     *
+     * @return list<string>
+     */
+    public static function always_on_module_ids(): array {
+        return [ 'status', 'auth' ];
+    }
+
+    private function module_map(): array {
+        $map = [
+            'status' => true,
+            'auth'   => true,
+        ];
+
+        foreach ( self::toggleable_module_classes() as $id => $class ) {
             $map[ $id ] = ( new $class() )->is_enabled();
         }
 

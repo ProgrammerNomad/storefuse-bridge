@@ -107,7 +107,7 @@ $readiness = [
                 </tbody>
             </table>
             <p>
-                <a href="<?php echo esc_url( admin_url( 'admin.php?page=storefuse-bridge-advanced' ) ); ?>" class="button"><?php esc_html_e( 'Manage modules', 'storefuse-bridge' ); ?></a>
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=storefuse-bridge-advanced' ) ); ?>" class="button"><?php esc_html_e( 'Manage modules on Advanced', 'storefuse-bridge' ); ?></a>
             </p>
         </div>
 
