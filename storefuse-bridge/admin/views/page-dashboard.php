@@ -7,7 +7,7 @@ $features  = StoreFuse_Bridge_WC_Compat::features();
 $settings  = StoreFuse_Bridge_Settings::all();
 $locations = get_nav_menu_locations();
 $last_flush = get_option( 'storefuse_bridge_last_flush_at', [] );
-$docs_url  = plugins_url( '../docs/', dirname( __FILE__ ) );
+$docs_url   = StoreFuse_Bridge_Admin::documentation_url();
 
 $readiness = [
     [
@@ -158,19 +158,9 @@ $readiness = [
     <div class="sfb-quick-links">
         <h2><?php esc_html_e( 'Documentation', 'storefuse-bridge' ); ?></h2>
         <div class="sfb-link-grid">
-            <a href="<?php echo esc_url( $docs_url . 'verified-routes.md' ); ?>" class="sfb-link-card" target="_blank" rel="noopener">
-                <strong><?php esc_html_e( 'Verified routes', 'storefuse-bridge' ); ?></strong>
-                <span><?php esc_html_e( 'Auth tiers & session tests', 'storefuse-bridge' ); ?></span>
-            </a>
-            <a href="<?php echo esc_url( $docs_url . 'clients/nextjs.md' ); ?>" class="sfb-link-card" target="_blank" rel="noopener">
-                <strong><?php esc_html_e( 'Next.js client', 'storefuse-bridge' ); ?></strong>
-            </a>
-            <a href="<?php echo esc_url( $docs_url . 'clients/mobile-flutter.md' ); ?>" class="sfb-link-card" target="_blank" rel="noopener">
-                <strong><?php esc_html_e( 'Flutter client', 'storefuse-bridge' ); ?></strong>
-            </a>
-            <a href="<?php echo esc_url( $docs_url . 'admin-guide.md' ); ?>" class="sfb-link-card" target="_blank" rel="noopener">
-                <strong><?php esc_html_e( 'Admin guide', 'storefuse-bridge' ); ?></strong>
-                <span><?php esc_html_e( 'Settings ↔ API registry', 'storefuse-bridge' ); ?></span>
+            <a href="<?php echo esc_url( $docs_url ); ?>" class="sfb-link-card" target="_blank" rel="noopener">
+                <strong><?php esc_html_e( 'Documentation on GitHub', 'storefuse-bridge' ); ?></strong>
+                <span><?php esc_html_e( 'API reference, client guides, admin guide, extensions', 'storefuse-bridge' ); ?></span>
             </a>
         </div>
     </div>

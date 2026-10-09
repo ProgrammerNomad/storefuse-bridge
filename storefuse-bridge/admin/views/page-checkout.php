@@ -116,7 +116,7 @@ if ( function_exists( 'WC' ) && WC()->payment_gateways() ) {
                             </ul>
                             <p class="description">
                                 <?php esc_html_e( 'Verify each gateway supports Block Checkout / Store API before enabling headless mode.', 'storefuse-bridge' ); ?>
-                                <a href="<?php echo esc_url( plugins_url( '../docs/clients/mobile-flutter.md', dirname( __FILE__ ) ) ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Mobile checkout notes →', 'storefuse-bridge' ); ?></a>
+                                <a href="<?php echo esc_url( StoreFuse_Bridge_Admin::documentation_url() ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Documentation on GitHub →', 'storefuse-bridge' ); ?></a>
                             </p>
                         <?php else : ?>
                             <p class="description">

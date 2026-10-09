@@ -2,6 +2,8 @@
 
 Merchants configure headless storefront content under **WooCommerce → StoreFuse**. Developers trace API fields using this registry.
 
+**Documentation in wp-admin:** All “Documentation” links in the plugin admin open the [GitHub docs index](https://github.com/ProgrammerNomad/storefuse-bridge/blob/main/docs/README.md) (single source of truth).
+
 **Permissions:** `manage_woocommerce` (shop managers).
 
 ## Admin pages

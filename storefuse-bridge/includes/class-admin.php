@@ -42,6 +42,19 @@ class StoreFuse_Bridge_Admin {
         return $links;
     }
 
+    /**
+     * Canonical documentation URL (GitHub docs index).
+     *
+     * Override with filter `storefuse_bridge_documentation_url` or constant STOREFUSE_BRIDGE_DOCS_URL.
+     */
+    public static function documentation_url(): string {
+        $default = defined( 'STOREFUSE_BRIDGE_DOCS_URL' )
+            ? STOREFUSE_BRIDGE_DOCS_URL
+            : 'https://github.com/ProgrammerNomad/storefuse-bridge/blob/main/docs/README.md';
+
+        return (string) apply_filters( 'storefuse_bridge_documentation_url', $default );
+    }
+
     public function register_menus(): void {
         add_menu_page(
             __( 'StoreFuse Bridge', 'storefuse-bridge' ),

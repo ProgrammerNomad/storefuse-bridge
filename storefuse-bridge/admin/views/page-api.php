@@ -92,7 +92,7 @@ $last_flush = get_option( 'storefuse_bridge_last_flush_at', [] );
             <li><?php esc_html_e( 'Mobile: follow cart token + nonce flow in the Flutter client doc.', 'storefuse-bridge' ); ?></li>
         </ol>
         <p>
-            <a href="<?php echo esc_url( plugins_url( '../docs/verified-routes.md', dirname( __FILE__ ) ) ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Verified routes (source of truth) →', 'storefuse-bridge' ); ?></a>
+            <a href="<?php echo esc_url( StoreFuse_Bridge_Admin::documentation_url() ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Documentation on GitHub →', 'storefuse-bridge' ); ?></a>
         </p>
     </div>
 </div>

@@ -2,7 +2,7 @@
 $s = StoreFuse_Bridge_Settings::all();
 $client = $s['primary_client'] ?? 'other';
 $webhooks_on = ! empty( $s['module_webhooks_enabled'] );
-$docs_base = plugin_dir_url( dirname( dirname( __FILE__ ) ) ) . '../docs/clients/';
+$docs_url    = StoreFuse_Bridge_Admin::documentation_url();
 ?>
 <div class="wrap sfb-admin">
     <h1><?php esc_html_e( 'StoreFuse - Storefront & Clients', 'storefuse-bridge' ); ?></h1>
@@ -43,11 +43,9 @@ $docs_base = plugin_dir_url( dirname( dirname( __FILE__ ) ) ) . '../docs/clients
                             <option value="other" <?php selected( $client, 'other' ); ?>><?php esc_html_e( 'Other headless client', 'storefuse-bridge' ); ?></option>
                         </select>
                         <p class="description"><?php esc_html_e( 'Admin tips only - does not change API behaviour.', 'storefuse-bridge' ); ?></p>
-                        <?php if ( $client === 'flutter' ) : ?>
-                            <p class="description"><a href="https://github.com/ProgrammerNomad/storefuse-flutter/blob/main/docs/payments-and-checkout.md" target="_blank" rel="noopener"><?php esc_html_e( 'Flutter checkout & payments guide →', 'storefuse-bridge' ); ?></a></p>
-                        <?php elseif ( $client === 'nextjs' ) : ?>
-                            <p class="description"><a href="<?php echo esc_url( home_url( '/wp-content/plugins/storefuse-bridge/docs/clients/nextjs.md' ) ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Next.js client guide →', 'storefuse-bridge' ); ?></a></p>
-                        <?php endif; ?>
+                        <p class="description">
+                            <a href="<?php echo esc_url( $docs_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Documentation on GitHub →', 'storefuse-bridge' ); ?></a>
+                        </p>
                     </td>
                 </tr>
             </table>

@@ -1,5 +1,4 @@
 <?php defined( 'ABSPATH' ) || exit;
-$plugin_docs = plugins_url( '../docs/', dirname( __FILE__ ) );
 ?>
 <div class="wrap sfb-admin">
     <h1><?php esc_html_e( 'StoreFuse - Extensions', 'storefuse-bridge' ); ?></h1>
@@ -10,8 +9,10 @@ $plugin_docs = plugins_url( '../docs/', dirname( __FILE__ ) );
             <?php esc_html_e( 'Extend Bridge with WordPress filters and actions, or ship a companion plugin that registers additional REST modules (v0.2).', 'storefuse-bridge' ); ?>
         </p>
         <p>
-            <a class="button" href="<?php echo esc_url( $plugin_docs . 'extensions.md' ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Extensions guide (v0.1)', 'storefuse-bridge' ); ?></a>
-            <a class="button" href="<?php echo esc_url( $plugin_docs . 'extension-api-v0.2.md' ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Extension API spec (v0.2)', 'storefuse-bridge' ); ?></a>
+            <a class="button button-primary" href="<?php echo esc_url( StoreFuse_Bridge_Admin::documentation_url() ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'View documentation on GitHub', 'storefuse-bridge' ); ?></a>
+        </p>
+        <p class="description">
+            <?php esc_html_e( 'Extensions guide and v0.2 extension API spec are linked from the docs index.', 'storefuse-bridge' ); ?>
         </p>
     </div>
 

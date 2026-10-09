@@ -130,3 +130,11 @@ add_action( 'storefuse_bridge_guest_cart_merged', function ( int $user_id, array
 ## v0.2 module registration
 
 Not available in v0.1.0. See [extension-api-v0.2.md](extension-api-v0.2.md) for the planned `storefuse_bridge_modules` filter and companion module contract.
+
+---
+
+## Admin documentation URL
+
+| Filter | Arguments | Return | Purpose |
+|--------|-----------|--------|---------|
+| `storefuse_bridge_documentation_url` | `$url` (string) | string | Override the GitHub docs index URL shown in wp-admin (default: `STOREFUSE_BRIDGE_DOCS_URL` constant). |
