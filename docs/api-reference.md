@@ -89,8 +89,8 @@ Some handlers enforce login/nonce even when the REST `permission_callback` is pu
 |--------|----------|---------|---------|
 | `Cookie` | WP auth + WC session | `credentials: 'include'` or BFF proxy | Cookie jar per API host |
 | `X-WP-Nonce` | Auth and account writes | From `/auth/nonce` or login/me payload | Same; refresh after login |
-| `X-WC-Nonce` | Cart, checkout, reorder | From `/auth/me` `cart_nonce` or cart flow | Persist with session state |
-| `X-StoreFuse-Cart-Token` | Response only; optional client storage | Optional debug/merge aid | Recommended for session continuity |
+| `X-WC-Nonce` | Cart, checkout, reorder | From `GET /auth/nonce`.cart_nonce, `GET /cart`.cart_nonce, or login/me (**1.0.2+** guest bootstrap) | Persist with session state |
+| `X-StoreFuse-Cart-Token` | Optional request header; signed restore (experimental) | Optional fallback | Cookie jar primary; see [cart-token-restore.md](cart-token-restore.md) |
 
 Do not put session or authenticated responses on public CDN caches.
 

@@ -347,16 +347,21 @@ class StoreFuse_Bridge_Module_Cart extends StoreFuse_Bridge_Module {
      * Build the standard cart response with session headers.
      */
     private function cart_response(): WP_REST_Response {
-        $response = $this->success( $this->format_cart(), 'storefuse.cart.v1' );
-        $response = StoreFuse_Bridge_Session::set_cart_token_header( $response );
+        $cart_nonce = StoreFuse_Bridge_Auth::generate_storefront_nonce();
+        $response   = $this->success( $this->format_cart( $cart_nonce ), 'storefuse.cart.v1' );
+        $response->header( 'X-WC-Nonce', $cart_nonce );
+        $response   = StoreFuse_Bridge_Session::set_cart_token_header( $response );
         return StoreFuse_Bridge_Response::with_no_store( $response );
     }
 
     /**
      * Normalise the WooCommerce cart into the StoreFuse cart shape.
      */
-    private function format_cart(): array {
+    private function format_cart( ?string $cart_nonce = null ): array {
         $cart = WC()->cart;
+        if ( $cart_nonce === null ) {
+            $cart_nonce = StoreFuse_Bridge_Auth::generate_storefront_nonce();
+        }
 
         return apply_filters( 'storefuse_bridge_cart_data', [
             'items'          => $this->format_cart_items( $cart->get_cart() ),
@@ -365,6 +370,7 @@ class StoreFuse_Bridge_Module_Cart extends StoreFuse_Bridge_Module {
             'item_count'     => $cart->get_cart_contents_count(),
             'needs_shipping' => $cart->needs_shipping(),
             'is_empty'       => $cart->is_empty(),
+            'cart_nonce'     => $cart_nonce,
         ] );
     }
 

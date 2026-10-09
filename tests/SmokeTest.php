@@ -12,6 +12,6 @@ final class SmokeTest extends TestCase
         $this->assertFileExists($main);
         $contents = file_get_contents($main);
         $this->assertIsString($contents);
-        $this->assertStringContainsString("STOREFUSE_BRIDGE_VERSION',  '1.0.1'", $contents);
+        $this->assertStringContainsString("STOREFUSE_BRIDGE_VERSION',  '1.0.2'", $contents);
     }
 }

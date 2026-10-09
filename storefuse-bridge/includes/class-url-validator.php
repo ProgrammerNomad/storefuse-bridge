@@ -30,6 +30,17 @@ class StoreFuse_Bridge_Url_Validator {
         }
 
         $ips = self::resolve_host_ips( $host );
+        /**
+         * Filter resolved IPs before webhook validation (tests or custom resolvers).
+         *
+         * @param list<string> $ips
+         * @param string       $host
+         */
+        $ips = apply_filters( 'storefuse_bridge_webhook_resolved_ips', $ips, $host );
+        if ( $ips === [] ) {
+            return new WP_Error( 'invalid_url', 'Host could not be resolved.' );
+        }
+
         foreach ( $ips as $ip ) {
             if ( self::is_private_or_reserved_ip( $ip ) ) {
                 return new WP_Error( 'invalid_url', 'Private or reserved network addresses are not allowed.' );
@@ -66,6 +77,11 @@ class StoreFuse_Bridge_Url_Validator {
     private static function resolve_host_ips( string $host ): array {
         if ( filter_var( $host, FILTER_VALIDATE_IP ) ) {
             return [ $host ];
+        }
+
+        $filtered = apply_filters( 'storefuse_bridge_resolve_host_ips', null, $host );
+        if ( is_array( $filtered ) ) {
+            return array_values( array_unique( array_map( 'strval', $filtered ) ) );
         }
 
         $records = @dns_get_record( $host, DNS_A + DNS_AAAA );

@@ -3,7 +3,7 @@
  * Plugin Name:       StoreFuse Bridge
  * Plugin URI:        https://github.com/ProgrammerNomad/storefuse-bridge
  * Description:       The official WordPress/WooCommerce companion plugin for StoreFuse. Exposes a clean, versioned REST API namespace for headless storefronts.
- * Version:           1.0.1
+ * Version:           1.0.2
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            NomadProgrammer
@@ -20,7 +20,7 @@ defined( 'ABSPATH' ) || exit;
 
 // ── Constants ───
 
-define( 'STOREFUSE_BRIDGE_VERSION',  '1.0.1' );
+define( 'STOREFUSE_BRIDGE_VERSION',  '1.0.2' );
 define( 'STOREFUSE_BRIDGE_PATH',     plugin_dir_path( __FILE__ ) );
 define( 'STOREFUSE_BRIDGE_URL',      plugin_dir_url( __FILE__ ) );
 define( 'STOREFUSE_BRIDGE_BASENAME', plugin_basename( __FILE__ ) );
@@ -79,6 +79,8 @@ function storefuse_bridge_activate(): void {
             );
         }
     }
+
+    StoreFuse_Bridge_Migrations::install_schema();
 
     // Store activation version for future migration checks
     update_option( 'storefuse_bridge_version', STOREFUSE_BRIDGE_VERSION );

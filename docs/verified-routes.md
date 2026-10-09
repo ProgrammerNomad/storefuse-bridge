@@ -1,10 +1,10 @@
-# Verified routes (StoreFuse Bridge v1.0.1)
+# Verified routes (StoreFuse Bridge v1.0.2)
 
 This matrix is audited from `register_rest_route()` calls under the `storefuse/v1` namespace in PHP. Use it as the source of truth for client docs and Flutter phase planning.
 
 **Base URL:** `{site}/wp-json/storefuse/v1`
 
-**Plugin version audited:** `1.0.1` (`STOREFUSE_BRIDGE_VERSION`)
+**Plugin version audited:** `1.0.2` (`STOREFUSE_BRIDGE_VERSION`)
 
 ---
 
@@ -30,7 +30,8 @@ Some routes use `permission_callback => __return_true` but enforce login or nonc
 | `X-StoreFuse-Bridge-Version` | All StoreFuse envelope responses |
 | `Cache-Control: public, max-age=…` | Public catalog/settings (see caching table) |
 | `Cache-Control: no-store` | Cart, checkout, auth, account, orders, wishlist |
-| `X-StoreFuse-Cart-Token` | Cart and post-login auth responses (WC customer/session id) |
+| `X-StoreFuse-Cart-Token` | Cart and post-login auth responses (signed session restore token; see [cart-token-restore.md](cart-token-restore.md)) |
+| `X-WC-Nonce` | Cart responses (1.0.2+); echo of fresh `wc_store_api` nonce for writes |
 | `X-StoreFuse-Cache: HIT \| MISS` | Transient-backed public endpoints |
 
 Never cache session or authenticated responses on shared CDNs.
@@ -59,14 +60,14 @@ Never cache session or authenticated responses on shared CDNs.
 | POST | `/reviews` | reviews | Authenticated + WP nonce | Handler enforces login + nonce |
 | GET | `/utils/countries` | utils | Public | |
 | GET | `/utils/pincode/{pincode}` | utils | Public | |
-| GET | `/auth/nonce` | auth | Public | Returns fresh `wp_rest` nonce; rate limited per IP |
+| GET | `/auth/nonce` | auth | Public | Returns `nonce` (`wp_rest`) + `cart_nonce` (`wc_store_api`, **1.0.2+**); rate limited per IP |
 | POST | `/auth/register` | auth | Auth (write) | Sets auth cookie on success |
 | POST | `/auth/login` | auth | Auth (write) | Guest cart merge via `StoreFuse_Bridge_Session` |
 | POST | `/auth/logout` | auth | Auth (write) | Handler requires login |
-| GET | `/auth/me` | auth | Public | Returns `200` with `{ logged_in: false }` for guests; full profile when logged in |
+| GET | `/auth/me` | auth | Public | Guests: `200` with `{ logged_in: false, nonce, cart_nonce }` (**1.0.2+**); logged-in profile + nonces |
 | POST | `/auth/forgot-password` | auth | Auth (write) | |
 | POST | `/auth/reset-password` | auth | Auth (write) | |
-| GET | `/cart` | cart | Session (read) | `no-store`; cart token header |
+| GET | `/cart` | cart | Session (read) | `no-store`; `cart_nonce` in JSON + `X-WC-Nonce` header (**1.0.2+**); cart token header |
 | POST | `/cart/add` | cart | Session (write) | |
 | PUT | `/cart/update` | cart | Session (write) | |
 | DELETE | `/cart/remove` | cart | Session (write) | |
@@ -107,9 +108,11 @@ Run against a **dev** WordPress + WooCommerce site with StoreFuse Bridge active.
 | # | Step | Expected | Result |
 |---|------|----------|--------|
 | 1 | `GET /cart` as guest (no cookies) | 200, empty or new cart, `X-StoreFuse-Cart-Token` set | ☐ |
-| 2 | `GET /auth/nonce` | 200 with nonce for `X-WP-Nonce` | ☐ |
-| 3 | Obtain WC cart nonce (from cart response or login) | Nonce valid for `wc_store_api` | ☐ |
+| 2 | `GET /auth/nonce` | 200 with `nonce` + `cart_nonce` (**1.0.2+**) | ☐ |
+| 3 | `GET /cart` body `cart_nonce` or `/auth/nonce` `cart_nonce` | Nonce valid for `wc_store_api` | ☐ |
 | 4 | `POST /cart/add` with `X-WC-Nonce` + session cookie | Item added | ☐ |
+| 4b | Guest cart without login: `GET /cart` → `GET /auth/nonce` → `POST /cart/add` | 200; line item present | ☐ |
+| 9 | Cart token restore (optional) | See [cart-token-restore.md](cart-token-restore.md) | ☐ |
 | 5 | `PUT /cart/update` | Quantity updates | ☐ |
 | 6 | `POST /auth/login` with guest cart cookie + `X-WP-Nonce` | 200, user payload, cart merged | ☐ |
 | 7a | `GET /auth/me` without auth cookie | 200 `{ logged_in: false }` | ☐ |
@@ -128,7 +131,7 @@ Run against a **dev** WordPress + WooCommerce site with StoreFuse Bridge active.
 |---------|-------------------|------------------|
 | Auth cookie | Browser sends automatically with `credentials: 'include'` | Persist cookie jar per site; same cookie names as WP |
 | WC session | Same-origin or BFF proxy to WP origin | Cookie jar + optional `X-StoreFuse-Cart-Token` storage |
-| Cart/checkout writes | `X-WC-Nonce` from login/me or cart bootstrap | Same header; store nonces from `/auth/me` |
+| Cart/checkout writes | `X-WC-Nonce` from `/auth/nonce`, `/cart`, or login/me | Same; guest bootstrap via `/auth/nonce` + `/cart` (**1.0.2+**) |
 | Auth writes | `GET /auth/nonce` then `X-WP-Nonce` | Same flow; no shared storage with browser |
 | CORS | Configure WP/plugin for storefront origin | Not applicable for direct mobile → WP HTTPS |
 | Caching | ISR only for public tier; never cache credentialed fetches | No HTTP cache on authenticated requests |

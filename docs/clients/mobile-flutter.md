@@ -14,7 +14,8 @@ Flutter talks to the **same** JSON contract as web: `/wp-json/storefuse/v1`. Ses
 - Persist cookies per host (`Cookie` header on every request).
 - Set `Cache-Control: no-store` behavior client-side for cart, auth, account, orders.
 - Persist **WooCommerce session cookies** in the jar (required).
-- Send **`X-StoreFuse-Cart-Token`** from responses on subsequent requests when cookies are unavailable (Bridge **1.0.1+** signed restore). Prefer cookie jar; header alone is not login.
+- Send **`X-StoreFuse-Cart-Token`** when cookies are unavailable (Bridge **1.0.1+** signed restore; verify on WC per [cart-token-restore.md](../cart-token-restore.md)). Prefer cookie jar; header alone is not login.
+- **`minSupportedBridgeVersion`:** compare `GET /status` → `data.version` to **`1.0.2`** before guest cart flows (requires `cart_nonce` on `/auth/nonce` and `/cart`).
 
 Packages such as `cookie_jar` + `dio` or `http` with a custom client are typical; implementation is app-specific.
 
@@ -22,9 +23,9 @@ Packages such as `cookie_jar` + `dio` or `http` with a custom client are typical
 
 ## Auth flow (native)
 
-1. `GET /auth/nonce` - no cookies required.
+1. `GET /auth/nonce` - no cookies required; read `nonce` and `cart_nonce` (**1.0.2+**).
 2. `POST /auth/login` with header `X-WP-Nonce: {nonce}`; store all `Set-Cookie` headers in the jar.
-3. `GET /auth/me` - verify session; refresh `nonce` and `cart_nonce` from payload (`logged_in: false` when logged out).
+3. `GET /auth/me` - verify session; refresh `nonce` and `cart_nonce` from payload (`logged_in: false` still includes nonces on **1.0.2+**).
 
 **Application Passwords (optional):** prefer `Authorization: Basic` with `username:app_password`. Bearer + base64 is compatibility-only (not OAuth2).
 
@@ -34,8 +35,8 @@ Logout: `POST /auth/logout` with `X-WP-Nonce` and auth cookies.
 
 ## Guest cart → login merge
 
-1. `GET /cart` as guest - save WC session cookies + optional cart token header.
-2. Add items with `X-WC-Nonce` after obtaining cart nonce (from a future bootstrap or post-login `me`).
+1. `GET /cart` as guest - save WC session cookies + optional cart token header; read `cart_nonce` from body (**1.0.2+**).
+2. Add items with `X-WC-Nonce` after `GET /auth/nonce` or `GET /cart` bootstrap (or post-login `me`).
 3. `POST /auth/login` **with the same cookie jar** so `storefuse_bridge_guest_cart_merged` can merge lines.
 
 Validate on a dev site using the checklist in [verified-routes.md](../verified-routes.md).

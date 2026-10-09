@@ -282,45 +282,45 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
             }
         }
 
-        // Validate gateway
-        $gateways = WC()->payment_gateways()->get_available_payment_gateways();
-        if ( ! isset( $gateways[ $payment_method_id ] ) ) {
-            return StoreFuse_Bridge_Errors::validation_error( 'Invalid payment method.' );
-        }
-        $gateway = $gateways[ $payment_method_id ];
-
-        // Validate required billing fields
-        $billing_error = $this->validate_billing( $billing );
-        if ( $billing_error ) {
-            return $billing_error;
-        }
-
-        // Set chosen shipping methods before calculating totals
-        if ( ! empty( $shipping_methods ) ) {
-            WC()->session->set( 'chosen_shipping_methods', array_values( $shipping_methods ) );
-        }
-
-        // Push billing/shipping into WC customer (needed for shipping calc and order creation)
-        $this->apply_customer_address( $billing, $shipping, $ship_to_different );
-        WC()->cart->calculate_shipping();
-        WC()->cart->calculate_totals();
-
-        $shipping_error = $this->validate_shipping_methods( $shipping_methods );
-        if ( $shipping_error ) {
-            return $shipping_error;
-        }
-
-        // Build data array for WC_Checkout::create_order()
-        $checkout_data = $this->build_checkout_data(
-            $billing,
-            $shipping,
-            $ship_to_different,
-            $payment_method_id,
-            $gateway->get_title(),
-            $order_notes
-        );
-
         try {
+            // Validate gateway
+            $gateways = WC()->payment_gateways()->get_available_payment_gateways();
+            if ( ! isset( $gateways[ $payment_method_id ] ) ) {
+                return StoreFuse_Bridge_Errors::validation_error( 'Invalid payment method.' );
+            }
+            $gateway = $gateways[ $payment_method_id ];
+
+            // Validate required billing fields
+            $billing_error = $this->validate_billing( $billing );
+            if ( $billing_error ) {
+                return $billing_error;
+            }
+
+            // Set chosen shipping methods before calculating totals
+            if ( ! empty( $shipping_methods ) ) {
+                WC()->session->set( 'chosen_shipping_methods', array_values( $shipping_methods ) );
+            }
+
+            // Push billing/shipping into WC customer (needed for shipping calc and order creation)
+            $this->apply_customer_address( $billing, $shipping, $ship_to_different );
+            WC()->cart->calculate_shipping();
+            WC()->cart->calculate_totals();
+
+            $shipping_error = $this->validate_shipping_methods( $shipping_methods );
+            if ( $shipping_error ) {
+                return $shipping_error;
+            }
+
+            // Build data array for WC_Checkout::create_order()
+            $checkout_data = $this->build_checkout_data(
+                $billing,
+                $shipping,
+                $ship_to_different,
+                $payment_method_id,
+                $gateway->get_title(),
+                $order_notes
+            );
+
             // Create the order (WC fires woocommerce_checkout_order_created internally).
             try {
                 $order_id = WC()->checkout()->create_order( $checkout_data );

@@ -149,7 +149,7 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
         }
 
         $response = $this->success(
-            [ 'nonce' => wp_create_nonce( 'wp_rest' ) ],
+            StoreFuse_Bridge_Auth::bootstrap_nonces(),
             'storefuse.auth.v1'
         );
         return StoreFuse_Bridge_Response::with_no_store( $response );
@@ -270,12 +270,10 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
      */
     public function me( WP_REST_Request $request ): WP_REST_Response {
         if ( ! is_user_logged_in() ) {
-            $response = $this->success(
-                [
-                    'logged_in' => false,
-                ],
-                'storefuse.auth.v1'
-            );
+            $guest = StoreFuse_Bridge_Auth::bootstrap_nonces();
+            $guest['logged_in'] = false;
+
+            $response = $this->success( $guest, 'storefuse.auth.v1' );
             return StoreFuse_Bridge_Response::with_no_store( $response );
         }
 

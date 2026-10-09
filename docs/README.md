@@ -23,6 +23,15 @@ Headless WooCommerce API for **Next.js**, **Flutter**, and other clients - one n
 | [extensions.md](extensions.md) | WordPress filters and actions (v0.1) |
 | [extension-api-v0.2.md](extension-api-v0.2.md) | Planned module registration spec (doc only) |
 
-**Minimum Bridge version for client docs:** `1.0.1` (`STOREFUSE_BRIDGE_VERSION`).
+**Minimum Bridge version for client docs:** `1.0.2` (`STOREFUSE_BRIDGE_VERSION`).
+
+## Auth and session SSOT (headers)
+
+| Concept | Field / header | Guest source | Logged-in source | Plugin version |
+|---------|----------------|--------------|------------------|----------------|
+| WP REST nonce | `X-WP-Nonce` | `GET /auth/nonce`.nonce | login / `GET /auth/me` | 1.0.0+ |
+| WC cart nonce | `X-WC-Nonce` | `GET /auth/nonce`.cart_nonce` and/or `GET /cart`.cart_nonce | login / `GET /auth/me` `cart_nonce` | **1.0.2+** |
+| Session | WC cookies | Required (primary) | Required | 1.0.0+ |
+| Cart token | `X-StoreFuse-Cart-Token` | Response header; signed restore **experimental** until [cart-token-restore.md](cart-token-restore.md) passes | Same | 1.0.1+ code; support TBD |
 
 Related: [storefuse-flutter](https://github.com/ProgrammerNomad/storefuse-flutter) planning docs (no shippable app in this phase).

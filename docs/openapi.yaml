@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: StoreFuse Bridge API
-  version: 1.0.1
+  version: 1.0.2
   description: |
     Headless WooCommerce REST API. Full shapes: verified-routes.md and api-reference.md.
 servers:
@@ -65,7 +65,27 @@ paths:
   /auth/nonce:
     get:
       tags: [auth]
-      summary: Bootstrap wp_rest nonce (rate limited)
+      summary: Bootstrap wp_rest and wc_store_api nonces (rate limited)
+      responses:
+        '200':
+          description: Nonce pair for auth and cart writes
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [nonce, cart_nonce]
+                        properties:
+                          nonce:
+                            type: string
+                            description: wp_rest nonce for X-WP-Nonce
+                          cart_nonce:
+                            type: string
+                            description: wc_store_api nonce for X-WC-Nonce (1.0.2+)
   /auth/register:
     post:
       tags: [auth]
@@ -93,7 +113,7 @@ paths:
   /cart:
     get:
       tags: [cart]
-      summary: Current session cart
+      summary: Current session cart (includes cart_nonce in body; X-WC-Nonce header on 1.0.2+)
   /cart/add:
     post:
       tags: [cart]

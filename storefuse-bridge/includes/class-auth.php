@@ -101,6 +101,20 @@ class StoreFuse_Bridge_Auth {
     }
 
     /**
+     * Nonce pair for guest bootstrap (GET /auth/nonce, optional GET /auth/me).
+     *
+     * @return array{nonce: string, cart_nonce: string}
+     */
+    public static function bootstrap_nonces(): array {
+        self::ensure_cart();
+
+        return [
+            'nonce'      => wp_create_nonce( 'wp_rest' ),
+            'cart_nonce' => self::generate_storefront_nonce(),
+        ];
+    }
+
+    /**
      * Validate X-WC-Nonce for cart/checkout write handlers.
      *
      * @return WP_REST_Response|null Null when valid.

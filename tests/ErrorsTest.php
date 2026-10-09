@@ -16,7 +16,7 @@ final class ErrorsTest extends TestCase
         $this->assertSame('storefuse.error.v1', $data['schema']);
         $this->assertSame('sold_individually', $data['error']['code']);
         $this->assertSame(400, $data['error']['status']);
-        $this->assertSame('1.0.1', $data['api_version']);
+        $this->assertSame('1.0.2', $data['api_version']);
     }
 
     public function test_forbidden_maps_to_idor_contract(): void

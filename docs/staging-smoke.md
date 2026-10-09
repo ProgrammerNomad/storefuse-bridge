@@ -1,6 +1,8 @@
 # Staging smoke (manual)
 
-Run on **WP + WooCommerce + StoreFuse Bridge 1.0.1** before production. Base: `{site}/wp-json/storefuse/v1`.
+Run on **WP + WooCommerce + StoreFuse Bridge 1.0.2** before production. Base: `{site}/wp-json/storefuse/v1`.
+
+Record on the release ticket: **Bridge** version from `GET /status`, **WordPress** version, **WooCommerce** version, **HPOS** on/off.
 
 Automated in CI: PHP syntax, PHPUnit (validator, URL safety, error envelope, version smoke). **Not** automated: live WC session, cookies, CORS from browser origin.
 
@@ -13,8 +15,12 @@ curl -sS "{site}/wp-json/storefuse/v1/status" | head -c 400
 # Guest auth/me contract
 curl -sS "{site}/wp-json/storefuse/v1/auth/me"
 
-# Fresh WP REST nonce (rate limited per IP)
+# Fresh WP REST + cart nonces (rate limited per IP; 1.0.2+ includes cart_nonce)
 curl -sS "{site}/wp-json/storefuse/v1/auth/nonce"
+
+# Guest cart bootstrap (1.0.2+)
+curl -sS -c cookies.txt "{site}/wp-json/storefuse/v1/cart"
+curl -sS -b cookies.txt "{site}/wp-json/storefuse/v1/auth/nonce"
 ```
 
 ## Browser / client matrix
@@ -23,7 +29,9 @@ curl -sS "{site}/wp-json/storefuse/v1/auth/nonce"
 |-------|--------|------|
 | CORS | Next.js dev origin in **API & Tools → CORS**; `OPTIONS` preflight from browser | ☐ |
 | Cache flush | **API & Tools → Flush all**; confirm catalog `X-StoreFuse-Cache` refreshes | ☐ |
-| Guest cart | `GET /cart` → `POST /cart/add` with `X-WC-Nonce` | ☐ |
+| Guest cart | `GET /cart` → `GET /auth/nonce` → `POST /cart/add` with `X-WC-Nonce` + cookies (**1.0.2+**) | ☐ |
+| Cart token restore | [cart-token-restore.md](cart-token-restore.md) matrix | ☐ |
+| Cart merge | Guest lines → login (same jar) → qty/coupon cases per [verified-routes.md](verified-routes.md) | ☐ |
 | Checkout idempotency (retry) | Same session + same `Idempotency-Key` + same body twice → one order | ☐ |
 | Idempotency isolation | Two browsers/sessions same key → must **not** share order (409 or separate orders) | ☐ |
 | Pending/redirect payment | Gateway returns redirect; order stays pending/on-hold (not forced failed) | ☐ |

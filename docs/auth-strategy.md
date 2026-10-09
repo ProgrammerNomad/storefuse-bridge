@@ -2,18 +2,18 @@
 
 StoreFuse Bridge supports phased authentication paths while keeping **one REST contract** (`/storefuse/v1`).
 
-## Supported flows (v1.0.1)
+## Supported flows (v1.0.2)
 
 ### Next.js / browser
 
 - WordPress **auth cookies** with `credentials: 'include'` on same-site or correctly configured cross-site setups.
-- Bootstrap **`X-WP-Nonce`** via `GET /auth/nonce` before auth writes; **`X-WC-Nonce`** for cart/checkout writes.
+- Bootstrap **`X-WP-Nonce`** via `GET /auth/nonce` before auth writes; **`X-WC-Nonce`** for cart/checkout writes from `GET /auth/nonce`.cart_nonce and/or `GET /cart`.cart_nonce (**1.0.2+**).
 - Cross-origin SPAs often need a **BFF** (Route Handler) to forward cookies, or aligned **SameSite** + subdomain strategy. WordPress default cookie attributes may block cross-site browser requests.
 
 ### Flutter / native
 
 - **Required:** a **cookie jar** on the WordPress/WooCommerce host (Woo session + WP auth cookies).
-- **`X-StoreFuse-Cart-Token`:** signed server token (v1.1+) that can restore the Woo session when sent on requests **without** a session cookie; still send **`X-WC-Nonce`** for cart/checkout writes after `GET /cart`.
+- **`X-StoreFuse-Cart-Token`:** signed server token (1.0.1+ code) that can restore the Woo session when sent on requests **without** a session cookie; treat as **experimental** until [cart-token-restore.md](cart-token-restore.md) passes on your WC stack. Still send **`X-WC-Nonce`** for cart/checkout writes after `GET /cart` or `GET /auth/nonce`.
 - Do **not** treat the header alone as auth; it is session continuity, not login.
 
 ### Application Passwords (account API access)

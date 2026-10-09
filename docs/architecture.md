@@ -351,7 +351,7 @@ The `storefuse_bridge_guest_cart_merged` action lets external code react to the 
 
 ### Cart token for stateless clients (mobile apps)
 
-Mobile apps cannot use browser cookies for cart session. The `X-StoreFuse-Cart-Token` header is included in every cart response. Mobile clients send this token back in requests via the `X-WC-Nonce` header to maintain session continuity.
+Mobile apps should persist WooCommerce session cookies in a cookie jar. Cart responses include **`X-StoreFuse-Cart-Token`** (signed session restore) and, from **1.0.2+**, **`X-WC-Nonce`** plus `cart_nonce` in the JSON body. Send **`X-WC-Nonce`** (from `/auth/nonce`, `/cart`, or login/me) on cart/checkout writes; send **`X-StoreFuse-Cart-Token`** on requests only when cookies are unavailable (experimental — see [cart-token-restore.md](cart-token-restore.md)).
 
 ---
 

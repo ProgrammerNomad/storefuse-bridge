@@ -155,13 +155,14 @@ class StoreFuse_Bridge_Module_Webhooks extends StoreFuse_Bridge_Module {
         $signature = hash_hmac( 'sha256', $payload, $secret );
 
         $response = wp_remote_post( $endpoint, [
-            'headers'  => [
+            'headers'      => [
                 'Content-Type'          => 'application/json',
                 'X-StoreFuse-Signature' => $signature,
             ],
-            'body'     => $payload,
-            'timeout'  => 5,
-            'blocking' => false, // fire-and-forget; do not block the WP request
+            'body'         => $payload,
+            'timeout'      => 5,
+            'blocking'     => false, // fire-and-forget; do not block the WP request
+            'redirection'  => 0,
         ] );
 
         if ( is_wp_error( $response ) ) {
@@ -218,13 +219,14 @@ class StoreFuse_Bridge_Module_Webhooks extends StoreFuse_Bridge_Module {
         $signature = hash_hmac( 'sha256', $payload, $secret );
 
         $response = wp_remote_post( $endpoint, [
-            'headers'  => [
+            'headers'     => [
                 'Content-Type'          => 'application/json',
                 'X-StoreFuse-Signature' => $signature,
             ],
-            'body'     => $payload,
-            'timeout'  => 15,
-            'blocking' => true,
+            'body'        => $payload,
+            'timeout'     => 15,
+            'blocking'    => true,
+            'redirection' => 0,
         ] );
 
         $this->log_delivery( 'test', '', $response );

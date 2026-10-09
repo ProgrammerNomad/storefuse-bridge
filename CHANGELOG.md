@@ -2,6 +2,19 @@
 
 All notable changes to StoreFuse Bridge follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] - 2026-03-20
+
+### Fixed
+
+- **Guest cart bootstrap:** `GET /auth/nonce` and `GET /cart` now expose `cart_nonce` (`wc_store_api`); cart responses also send `X-WC-Nonce`. Guest `GET /auth/me` includes the same nonce pair when logged out.
+- **Checkout idempotency locks:** atomic acquire via DB table (option fallback); all post-lock checkout paths release the lock in `try/finally` (validation failures no longer hold locks for 120s).
+- **Webhook URL validation:** fail closed when DNS returns no addresses; outbound `wp_remote_post` uses `redirection => 0`.
+
+### Added
+
+- `docs/cart-token-restore.md` staging matrix for signed `X-StoreFuse-Cart-Token` (experimental until WC checklist passes).
+- PHPUnit: guest nonce bootstrap, idempotency lock acquire/release, empty DNS webhook rejection.
+
 ## [1.0.1] - 2026-03-20
 
 ### Fixed

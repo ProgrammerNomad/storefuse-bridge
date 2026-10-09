@@ -146,14 +146,124 @@ class StoreFuse_Bridge_Checkout_Idempotency {
     }
 
     public static function acquire_lock( string $lock_key ): bool {
-        if ( get_transient( $lock_key ) ) {
-            return false;
+        $filtered = apply_filters( 'storefuse_bridge_idempotency_acquire', null, $lock_key );
+        if ( is_bool( $filtered ) ) {
+            return $filtered;
         }
-        set_transient( $lock_key, 1, self::LOCK_TTL );
-        return true;
+
+        if ( self::acquire_lock_db( $lock_key ) ) {
+            return true;
+        }
+
+        return self::acquire_lock_option( $lock_key );
     }
 
     public static function release_lock( string $lock_key ): void {
-        delete_transient( $lock_key );
+        self::release_lock_db( $lock_key );
+        delete_option( self::lock_option_name( $lock_key ) );
+    }
+
+    private static function lock_option_name( string $lock_key ): string {
+        return 'sfb_idem_lock_' . md5( $lock_key );
+    }
+
+    private static function table_name(): string {
+        global $wpdb;
+        return $wpdb->prefix . 'sfb_idempotency_locks';
+    }
+
+    public static function ensure_lock_table(): void {
+        global $wpdb;
+        if ( ! isset( $wpdb ) ) {
+            return;
+        }
+
+        $table   = self::table_name();
+        $charset = $wpdb->get_charset_collate();
+        $sql     = "CREATE TABLE {$table} (
+            lock_key varchar(64) NOT NULL,
+            expires_at bigint unsigned NOT NULL,
+            PRIMARY KEY  (lock_key)
+        ) {$charset};";
+
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        dbDelta( $sql );
+    }
+
+    private static function acquire_lock_db( string $lock_key ): bool {
+        global $wpdb;
+        if ( ! isset( $wpdb ) || ! method_exists( $wpdb, 'insert' ) ) {
+            return false;
+        }
+
+        self::ensure_lock_table();
+
+        $table   = self::table_name();
+        $now     = time();
+        $expires = $now + self::LOCK_TTL;
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from prefix.
+        $wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE expires_at < %d", $now ) );
+
+        $inserted = $wpdb->insert(
+            $table,
+            [
+                'lock_key'   => $lock_key,
+                'expires_at' => $expires,
+            ],
+            [ '%s', '%d' ]
+        );
+
+        if ( $inserted !== false ) {
+            return true;
+        }
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from prefix.
+        $existing = (int) $wpdb->get_var(
+            $wpdb->prepare( "SELECT expires_at FROM {$table} WHERE lock_key = %s LIMIT 1", $lock_key )
+        );
+        if ( $existing > $now ) {
+            return false;
+        }
+
+        $wpdb->delete( $table, [ 'lock_key' => $lock_key ], [ '%s' ] );
+
+        return $wpdb->insert(
+            $table,
+            [
+                'lock_key'   => $lock_key,
+                'expires_at' => $expires,
+            ],
+            [ '%s', '%d' ]
+        ) !== false;
+    }
+
+    private static function release_lock_db( string $lock_key ): void {
+        global $wpdb;
+        if ( ! isset( $wpdb ) || ! method_exists( $wpdb, 'delete' ) ) {
+            return;
+        }
+
+        $table = self::table_name();
+        $wpdb->delete( $table, [ 'lock_key' => $lock_key ], [ '%s' ] );
+    }
+
+    private static function acquire_lock_option( string $lock_key ): bool {
+        $option  = self::lock_option_name( $lock_key );
+        $now     = time();
+        $expires = $now + self::LOCK_TTL;
+
+        if ( false !== add_option( $option, (string) $expires, '', 'no' ) ) {
+            return true;
+        }
+
+        $stored = get_option( $option );
+        if ( is_numeric( $stored ) && (int) $stored > $now ) {
+            return false;
+        }
+
+        delete_option( $option );
+
+        return false !== add_option( $option, (string) $expires, '', 'no' );
     }
 }
