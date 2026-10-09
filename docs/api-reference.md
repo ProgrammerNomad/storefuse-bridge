@@ -1219,28 +1219,46 @@ Single post with full HTML content.
 
 ## Error Responses
 
-All errors follow WordPress REST API conventions:
+All StoreFuse routes return the **StoreFuse error envelope** (normalized by `rest_post_dispatch`):
 
 ```json
 {
-  "code": "product_not_found",
-  "message": "No product found with slug: invalid-slug",
-  "data": { "status": 404 }
+  "schema": "storefuse.error.v1",
+  "api_version": "0.2.0",
+  "error": {
+    "code": "product_not_found",
+    "message": "Product not found.",
+    "status": 404
+  }
 }
 ```
 
-**Common error codes:**
+**Error code catalog** (from `StoreFuse_Bridge_Errors`):
 
 | Code | HTTP | Meaning |
 |---|---|---|
-| `woocommerce_not_active` | 500 | WooCommerce is not active |
-| `module_disabled` | 404 | Requested module is disabled in plugin settings |
-| `product_not_found` | 404 | Product slug does not exist |
-| `category_not_found` | 404 | Category slug does not exist |
-| `out_of_stock` | 400 | Cannot add out-of-stock product to cart |
-| `invalid_coupon` | 400 | Coupon code does not exist or has expired |
-| `invalid_nonce` | 403 | Cart/checkout nonce missing or invalid |
-| `search_query_too_short` | 400 | Search query must be at least 2 characters |
+| `validation_error` | 400 | Request failed validation (message explains field/rule) |
+| `invalid_email` | 400 | Email address is invalid |
+| `invalid_nonce` | 403 | `X-WP-Nonce` or `X-WC-Nonce` missing or invalid |
+| `not_authenticated` | 401 | Login required |
+| `invalid_credentials` | 401 | Login email/password incorrect |
+| `forbidden` | 403 | Logged in but not allowed (e.g. IDOR order access) |
+| `product_not_found` | 404 | Product missing |
+| `category_not_found` | 404 | Category missing |
+| `order_not_found` | 404 | Order missing |
+| `cart_item_not_found` | 404 | Cart line key missing |
+| `user_not_found` | 404 | User missing |
+| `email_already_registered` | 409 | Register email already in use |
+| `out_of_stock` | 410 | Cart/checkout stock no longer available |
+| `quantity_below_minimum` | 400 | Cart add/update below product min qty |
+| `quantity_above_maximum` | 400 | Cart add/update above product max qty |
+| `sold_individually` | 400 | Product allows only one unit per cart |
+| `coupon_invalid` | 422 | Coupon not valid |
+| `coupon_expired` | 422 | Coupon expired |
+| `checkout_failed` | 422 | Checkout or payment could not complete |
+| `server_error` | 500 | Unexpected server error |
+
+**Checkout idempotency:** `POST /checkout` accepts optional header `Idempotency-Key`. Replays within 24 hours return the same success payload without creating a duplicate order.
 
 ---
 

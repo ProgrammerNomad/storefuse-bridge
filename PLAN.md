@@ -941,9 +941,9 @@ The plugin needs: one stable storefront, one stable API, one stable checkout flo
 
 All data access goes through WC functions and WordPress APIs. Never bypass them with `$wpdb` queries. WooCommerce has changed its storage layer (HPOS), and WordPress has changed post storage. The compatibility layer exists for this reason.
 
-**No jQuery dependency**
+**Admin JS and jQuery**
 
-Admin JS is vanilla JavaScript. No jQuery. This avoids loading jQuery on every admin page just for the plugin's settings page, and keeps the codebase maintainable as WordPress eventually deprecates its jQuery version.
+Target is vanilla JS where possible. **`assets/admin.js` currently depends on jQuery** because wp-admin enqueues it for the media library and color picker on Homepage/Social settings. Revisit when those screens move to `@wordpress/components` or block-editor patterns.
 
 ---
 

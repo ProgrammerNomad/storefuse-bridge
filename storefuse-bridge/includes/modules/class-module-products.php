@@ -12,6 +12,9 @@ class StoreFuse_Bridge_Module_Products extends StoreFuse_Bridge_Module {
 
     protected string $id = 'products';
 
+    /** @var int[]|null */
+    private static ?array $on_sale_ids_cache = null;
+
     public function register_routes(): void {
 
         register_rest_route( $this->namespace, '/products', [
@@ -50,6 +53,16 @@ class StoreFuse_Bridge_Module_Products extends StoreFuse_Bridge_Module {
                     'sanitize_callback' => 'sanitize_email',
                     'validate_callback' => 'is_email',
                 ],
+                'consent' => [
+                    'required' => false,
+                    'type'     => 'boolean',
+                    'default'  => false,
+                ],
+                'website' => [
+                    'required' => false,
+                    'type'     => 'string',
+                    'default'  => '',
+                ],
             ],
         ] );
     }
@@ -78,8 +91,21 @@ class StoreFuse_Bridge_Module_Products extends StoreFuse_Bridge_Module {
         $total = (int) $query->found_posts;
         $items = [];
 
-        foreach ( $query->posts as $post ) {
-            $product = wc_get_product( $post->ID );
+        $post_ids = wp_list_pluck( $query->posts, 'ID' );
+        $by_id    = [];
+        if ( $post_ids ) {
+            $products = wc_get_products( [
+                'include' => array_map( 'intval', $post_ids ),
+                'limit'   => count( $post_ids ),
+                'status'  => 'publish',
+            ] );
+            foreach ( $products as $product ) {
+                $by_id[ $product->get_id() ] = $product;
+            }
+        }
+
+        foreach ( $post_ids as $post_id ) {
+            $product = $by_id[ (int) $post_id ] ?? null;
             if ( $product ) {
                 $items[] = StoreFuse_Bridge_Format::product( $product );
             }
@@ -160,6 +186,20 @@ class StoreFuse_Bridge_Module_Products extends StoreFuse_Bridge_Module {
 
     public function notify_signup( WP_REST_Request $request ): WP_REST_Response {
 
+        if ( $request->get_param( 'website' ) ) {
+            return StoreFuse_Bridge_Errors::validation_error( 'Invalid request.' );
+        }
+
+        if ( ! $request->get_param( 'consent' ) ) {
+            return StoreFuse_Bridge_Errors::validation_error( 'Consent is required to receive notifications.' );
+        }
+
+        $ip = isset( $_SERVER['REMOTE_ADDR'] ) ? (string) wp_unslash( $_SERVER['REMOTE_ADDR'] ) : 'unknown';
+        $throttle = StoreFuse_Bridge_Auth::throttle( 'notify_signup', $ip . ':' . sanitize_email( (string) $request->get_param( 'email' ) ) );
+        if ( $throttle ) {
+            return $throttle;
+        }
+
         $slug  = $request->get_param( 'slug' );
         $email = $request->get_param( 'email' );
 
@@ -179,8 +219,21 @@ class StoreFuse_Bridge_Module_Products extends StoreFuse_Bridge_Module {
         if ( ! is_array( $signups ) ) {
             $signups = [];
         }
-        if ( ! in_array( $email, $signups, true ) ) {
-            $signups[] = $email;
+        $already = false;
+        foreach ( $signups as $entry ) {
+            $existing = is_array( $entry ) ? ( $entry['email'] ?? '' ) : (string) $entry;
+            if ( strtolower( $existing ) === strtolower( $email ) ) {
+                $already = true;
+                break;
+            }
+        }
+
+        if ( ! $already ) {
+            $signups[] = [
+                'email'   => $email,
+                'consent' => true,
+                'time'    => current_time( 'mysql' ),
+            ];
             update_option( $option_key, $signups, false );
         }
 
@@ -256,8 +309,10 @@ class StoreFuse_Bridge_Module_Products extends StoreFuse_Bridge_Module {
 
         // On sale
         if ( ! empty( $params['on_sale'] ) ) {
-            $sale_ids            = wc_get_product_ids_on_sale();
-            $args['post__in']    = ! empty( $sale_ids ) ? $sale_ids : [ 0 ];
+            if ( self::$on_sale_ids_cache === null ) {
+                self::$on_sale_ids_cache = wc_get_product_ids_on_sale();
+            }
+            $args['post__in'] = ! empty( self::$on_sale_ids_cache ) ? self::$on_sale_ids_cache : [ 0 ];
         }
 
         // Featured

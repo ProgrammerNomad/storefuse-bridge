@@ -24,6 +24,15 @@
     box-shadow: 0 1px 3px rgba(0,0,0,.05);
 }
 
+.sfb-card.sfb-collapsed > :not(h2) {
+    display: none;
+}
+
+.sfb-card.sfb-collapsible > h2 {
+    cursor: pointer;
+    user-select: none;
+}
+
 .sfb-card h2 {
     margin-top: 0;
     padding-bottom: 10px;

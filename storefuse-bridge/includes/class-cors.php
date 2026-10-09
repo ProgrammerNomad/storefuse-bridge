@@ -52,17 +52,27 @@ class StoreFuse_Bridge_Cors {
             return;
         }
 
-        $origin  = isset( $_SERVER['HTTP_ORIGIN'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_ORIGIN'] ) ) : '';
-        $allowed = self::allowed_origins();
+        $origin       = isset( $_SERVER['HTTP_ORIGIN'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_ORIGIN'] ) ) : '';
+        $allowed      = self::allowed_origins();
+        $origin_match = $origin && in_array( $origin, $allowed, true );
 
-        if ( $origin && in_array( $origin, $allowed, true ) ) {
+        if ( $origin_match ) {
             header( 'Access-Control-Allow-Origin: ' . $origin );
             header( 'Access-Control-Allow-Credentials: true' );
             header( 'Vary: Origin', false );
         }
 
-        header( 'Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS' );
-        header( 'Access-Control-Allow-Headers: Authorization, Content-Type, X-WP-Nonce, X-StoreFuse-Cart-Token' );
+        header(
+            'Access-Control-Expose-Headers: X-WP-Nonce, X-WC-Nonce, X-StoreFuse-Cart-Token, X-StoreFuse-Cache, X-StoreFuse-Bridge-Version'
+        );
+
+        if ( $origin_match ) {
+            header( 'Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS' );
+            header(
+                'Access-Control-Allow-Headers: Authorization, Content-Type, X-WP-Nonce, X-WC-Nonce, X-StoreFuse-Cart-Token, Idempotency-Key'
+            );
+            header( 'Access-Control-Max-Age: 86400' );
+        }
     }
 
     /**

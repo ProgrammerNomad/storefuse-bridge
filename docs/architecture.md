@@ -40,7 +40,23 @@ StoreFuse Bridge is **one backend** for many frontends. All clients consume the 
 
 Client guides: [clients/nextjs.md](clients/nextjs.md), [clients/mobile-flutter.md](clients/mobile-flutter.md), [clients/generic-web.md](clients/generic-web.md).
 
-**JWT or token-first mobile auth** is explicitly out of scope for v0.1.0; cookies remain the compatibility layer with WooCommerce extensions.
+Mobile auth paths (cookies, Application Passwords, future JWT) are documented in [auth-strategy.md](auth-strategy.md).
+
+### Headless CSRF trade-off
+
+`GET /auth/nonce` is **public** so browser and mobile clients can obtain a `wp_rest` nonce before login/register. That improves DX for SPAs but exposes a CSRF token to unauthenticated callers on the same site rules as WordPress core REST. Mitigations in Bridge: **rate limiting** on the nonce endpoint, required **`X-WP-Nonce`** on auth writes, and **`X-WC-Nonce`** on cart/checkout writes tied to the Woo session. Treat nonces as session-scoped secrets in client storage; refresh after login.
+
+### Data ownership (SSOT)
+
+| Data | System of record | Bridge role |
+|------|------------------|-------------|
+| Products, stock, orders | WooCommerce | Read/write via WC APIs only |
+| Customer accounts | WordPress users + WC customer meta | Auth cookies / Application Passwords |
+| Cart session | WooCommerce session | `GET/POST /cart/*`; never cache at CDN |
+| Storefront content (hero, nav, badges) | `storefuse_bridge_settings` option | `GET /settings`, `/homepage`, `/navigation` |
+| Transient catalog cache | WordPress transients (`sfb_*`) | Invalidation hooks + admin flush |
+| Webhook targets | Merchant `storefront_url` + paths in settings | Outbound only; SSRF-validated |
+| API contract docs | GitHub `docs/` ([README.md](README.md)) | wp-admin links via `STOREFUSE_BRIDGE_DOCS_URL` |
 
 Verified routes and auth tiers: [verified-routes.md](verified-routes.md).
 
@@ -575,6 +591,15 @@ Group membership is tracked via a version key (the "transient group versioning" 
 | `search` | 5 minutes | `woocommerce_update_product` |
 | `reviews` | 30 minutes | `comment_post`, `edit_comment` |
 | `posts` | 1 hour | `transition_post_status` (publish/update) |
+
+### Cache recovery and failure modes
+
+- **Key prefix:** transients use `_transient_sfb_*` (logical keys prefixed with `sfb_` in code).
+- **Manual flush:** wp-admin → StoreFuse → API & Tools → flush all or per-group (`StoreFuse_Bridge_Cache::flush_group()`).
+- **Full flush:** `flush_all()` deletes all `sfb_` transients via SQL prefix match (no unbounded option tracking).
+- **Auto-invalidation:** product/category hooks call group SQL deletes; settings saves flush settings/homepage and fire `storefuse_bridge_settings_updated`.
+- **Stale data symptoms:** old prices/stock after admin edits → flush **products** group; nav/homepage wrong after settings → flush **settings** / **homepage**.
+- **Deactivation:** plugin deactivation calls `flush_all()` so the next activation rebuilds from live WooCommerce data.
 
 **Cross-group invalidation map** - one event can flush multiple groups:
 

@@ -57,3 +57,17 @@ Option key: `storefuse_bridge_settings` (single serialized array).
 - Last manual flush time is stored in `storefuse_bridge_last_flush_at`.
 
 See also [verified-routes.md](verified-routes.md) and [architecture.md](architecture.md).
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| Browser client blocked by CORS | Origin not allowlisted | **API & Tools → CORS**; add exact scheme+host+port; confirm preflight exposes `X-WC-Nonce`, `X-StoreFuse-Cart-Token` |
+| Cart writes return `invalid_nonce` | Missing or stale `X-WC-Nonce` | Call `GET /cart` first; send nonce header on POST/PUT/DELETE |
+| Auth writes fail 403 | Missing `X-WP-Nonce` | `GET /auth/nonce` before login/register; refresh after login |
+| Stale catalog after admin edit | Transient cache | Save settings (auto flush) or **API & Tools → Flush** product/settings group |
+| Session/cart lost on mobile | Cookie not persisted | Use cookie jar + cart token header; see [auth-strategy.md](auth-strategy.md) |
+| Orders missing in app | HPOS or wrong customer | Confirm user logged in; Bridge uses WC order APIs (HPOS-compatible) |
+| Webhook never hits storefront | SSRF guard or bad URL | **Storefront URL** must be HTTPS public host; see [security.md](security.md) |
+
+Staging verification: [staging-smoke.md](staging-smoke.md). Production gates: [acceptance-gates.md](acceptance-gates.md).

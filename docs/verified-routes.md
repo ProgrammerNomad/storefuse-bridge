@@ -1,10 +1,10 @@
-# Verified routes (StoreFuse Bridge v0.1.0)
+# Verified routes (StoreFuse Bridge v1.0.0)
 
 This matrix is audited from `register_rest_route()` calls under the `storefuse/v1` namespace in PHP. Use it as the source of truth for client docs and Flutter phase planning.
 
 **Base URL:** `{site}/wp-json/storefuse/v1`
 
-**Plugin version audited:** `0.1.0` (`STOREFUSE_BRIDGE_VERSION`)
+**Plugin version audited:** `1.0.0` (`STOREFUSE_BRIDGE_VERSION`)
 
 ---
 
@@ -47,7 +47,7 @@ Never cache session or authenticated responses on shared CDNs.
 | GET | `/homepage` | settings | Public | Cached |
 | GET | `/products` | products | Public | Cached |
 | GET | `/products/{slug}` | products | Public | Cached |
-| POST | `/products/{slug}/notify` | products | Public | Back-in-stock signup; `storefuse_bridge_notify_signup` action |
+| POST | `/products/{slug}/notify` | products | Public | Requires `consent: true`; honeypot `website`; rate limited |
 | GET | `/categories` | categories | Public | Cached |
 | GET | `/categories/{slug}` | categories | Public | Cached |
 | GET | `/search` | search | Public | Cached |
@@ -59,11 +59,11 @@ Never cache session or authenticated responses on shared CDNs.
 | POST | `/reviews` | reviews | Authenticated + WP nonce | Handler enforces login + nonce |
 | GET | `/utils/countries` | utils | Public | |
 | GET | `/utils/pincode/{pincode}` | utils | Public | |
-| GET | `/auth/nonce` | auth | Public | Returns fresh `wp_rest` nonce |
+| GET | `/auth/nonce` | auth | Public | Returns fresh `wp_rest` nonce; rate limited per IP |
 | POST | `/auth/register` | auth | Auth (write) | Sets auth cookie on success |
 | POST | `/auth/login` | auth | Auth (write) | Guest cart merge via `StoreFuse_Bridge_Session` |
 | POST | `/auth/logout` | auth | Auth (write) | Handler requires login |
-| GET | `/auth/me` | auth | Authenticated | Handler enforces login |
+| GET | `/auth/me` | auth | Public | Returns `200` with `{ logged_in: false }` for guests; full profile when logged in |
 | POST | `/auth/forgot-password` | auth | Auth (write) | |
 | POST | `/auth/reset-password` | auth | Auth (write) | |
 | GET | `/cart` | cart | Session (read) | `no-store`; cart token header |
@@ -76,7 +76,7 @@ Never cache session or authenticated responses on shared CDNs.
 | GET | `/checkout/payment-methods` | checkout | Public | `no-store` |
 | GET | `/checkout/shipping-methods` | checkout | Public | `no-store` |
 | POST | `/checkout` | checkout | Session (write) | Requires WC session + `X-WC-Nonce` |
-| POST | `/checkout/redirect-url` | checkout | Public | Redirect checkout mode; no nonce |
+| POST | `/checkout/redirect-url` | checkout | Session (write) | Requires WC session + `X-WC-Nonce` |
 | GET | `/orders/{key}` | checkout | Public | Key pattern `wc_order_*`; thank-you page |
 | GET | `/account` | account | Authenticated | |
 | PUT | `/account` | account | Authenticated + WP nonce | |
@@ -102,7 +102,7 @@ Disabled modules do not register routes (404 from WordPress REST router).
 
 ## Manual session verification checklist
 
-Run against a **dev** WordPress + WooCommerce site with StoreFuse Bridge active. Record pass/fail, Bridge version, and WC version.
+Run against a **dev** WordPress + WooCommerce site with StoreFuse Bridge active. Full staging script: [staging-smoke.md](staging-smoke.md). Record pass/fail, Bridge version, and WC version.
 
 | # | Step | Expected | Result |
 |---|------|----------|--------|
@@ -112,7 +112,8 @@ Run against a **dev** WordPress + WooCommerce site with StoreFuse Bridge active.
 | 4 | `POST /cart/add` with `X-WC-Nonce` + session cookie | Item added | ☐ |
 | 5 | `PUT /cart/update` | Quantity updates | ☐ |
 | 6 | `POST /auth/login` with guest cart cookie + `X-WP-Nonce` | 200, user payload, cart merged | ☐ |
-| 7 | `GET /auth/me` with auth cookie | 200 user profile | ☐ |
+| 7a | `GET /auth/me` without auth cookie | 200 `{ logged_in: false }` | ☐ |
+| 7b | `GET /auth/me` with auth cookie | 200 profile + `logged_in: true` | ☐ |
 | 8 | `POST /auth/logout` with `X-WP-Nonce` | Session cleared | ☐ |
 
 **Bridge version tested:** __________  

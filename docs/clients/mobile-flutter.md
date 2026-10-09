@@ -2,6 +2,8 @@
 
 Flutter talks to the **same** JSON contract as web: `/wp-json/storefuse/v1`. Session behavior differs from Next.js - plan for a **cookie jar**, explicit nonces, and **no shared CDN cache** on authenticated calls.
 
+**Auth SSOT:** [auth-strategy.md](../auth-strategy.md) (cookies now; Application Passwords for token-friendly mobile).
+
 **Planning reference:** [storefuse-flutter](https://github.com/ProgrammerNomad/storefuse-flutter) docs (roadmap only until app code ships).
 
 ---
@@ -21,7 +23,9 @@ Packages such as `cookie_jar` + `dio` or `http` with a custom client are typical
 
 1. `GET /auth/nonce` - no cookies required.
 2. `POST /auth/login` with header `X-WP-Nonce: {nonce}`; store all `Set-Cookie` headers in the jar.
-3. `GET /auth/me` - verify session; refresh `nonce` and `cart_nonce` from payload.
+3. `GET /auth/me` - verify session; refresh `nonce` and `cart_nonce` from payload (`logged_in: false` when logged out).
+
+**Application Passwords (optional):** send `Authorization: Basic` or `Bearer` with base64 `username:app_password` on StoreFuse routes after the user creates an app password in wp-admin.
 
 Logout: `POST /auth/logout` with `X-WP-Nonce` and auth cookies.
 

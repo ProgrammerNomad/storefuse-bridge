@@ -30,11 +30,6 @@ class StoreFuse_Bridge_Cache {
      */
     public static function set( string $key, mixed $value, int $expiry = 600 ): void {
         set_transient( self::PREFIX . $key, $value, $expiry );
-
-        // Track the key so we can flush it later
-        $keys   = (array) get_option( 'storefuse_bridge_cache_keys', [] );
-        $keys[] = self::PREFIX . $key;
-        update_option( 'storefuse_bridge_cache_keys', array_unique( $keys ), false );
     }
 
     /**
@@ -49,13 +44,14 @@ class StoreFuse_Bridge_Cache {
      * Called on deactivation and via the admin flush button.
      */
     public static function flush_all(): void {
-        $keys = (array) get_option( 'storefuse_bridge_cache_keys', [] );
-        foreach ( $keys as $full_key ) {
-            // $full_key already includes the prefix because we stored it that way
-            delete_transient( ltrim( str_replace( self::PREFIX, '', $full_key ), '_' ) );
-            // Also try deleting with the raw full key (covers both paths)
-            delete_transient( $full_key );
-        }
+        global $wpdb;
+        $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+                '_transient_' . self::PREFIX . '%',
+                '_transient_timeout_' . self::PREFIX . '%'
+            )
+        );
         delete_option( 'storefuse_bridge_cache_keys' );
         self::record_flush( 'all' );
     }

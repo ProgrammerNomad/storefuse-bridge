@@ -168,6 +168,8 @@ class StoreFuse_Bridge_Module_Settings extends StoreFuse_Bridge_Module {
             'price_decimal_separator'   => wc_get_price_decimal_separator(),
             'price_thousand_separator'  => wc_get_price_thousand_separator(),
             'price_decimals'            => wc_get_price_decimals(),
+            'prices_include_tax'        => wc_prices_include_tax(),
+            'tax_display'               => get_option( 'woocommerce_tax_display_shop', 'excl' ),
             'free_shipping_threshold'   => $free_shipping_threshold,
             'free_shipping_label'       => $free_shipping_label,
             'return_policy_days'        => (int) StoreFuse_Bridge_Settings::get( 'return_policy_days', 7 ),

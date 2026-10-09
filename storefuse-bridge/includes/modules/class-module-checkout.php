@@ -63,7 +63,7 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         register_rest_route( $this->namespace, '/checkout/redirect-url', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ $this, 'get_redirect_url' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ 'StoreFuse_Bridge_Auth', 'cart_permission' ],
         ] );
 
         // Order confirmation - order key acts as a public access token.
@@ -84,7 +84,7 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
      * lists for building the checkout form dynamically on the storefront.
      */
     public function get_config( WP_REST_Request $request ): WP_REST_Response {
-        $this->ensure_cart();
+        StoreFuse_Bridge_Auth::ensure_cart();
         $checkout = WC()->checkout();
 
         $data = apply_filters( 'storefuse_bridge_checkout_config', [
@@ -113,7 +113,7 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
      * Returns all active and available payment gateways for the current cart.
      */
     public function get_payment_methods( WP_REST_Request $request ): WP_REST_Response {
-        $this->ensure_cart();
+        StoreFuse_Bridge_Auth::ensure_cart();
 
         $gateways = WC()->payment_gateways()->get_available_payment_gateways();
         $methods  = [];
@@ -145,7 +145,7 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
      * Passing an address updates the customer's shipping address in the session.
      */
     public function get_shipping_methods( WP_REST_Request $request ): WP_REST_Response {
-        $this->ensure_cart();
+        StoreFuse_Bridge_Auth::ensure_cart();
 
         if ( WC()->cart->is_empty() ) {
             return StoreFuse_Bridge_Response::with_no_store(
@@ -225,15 +225,30 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
      * Requires X-WC-Nonce header.
      */
     public function process_checkout( WP_REST_Request $request ): WP_REST_Response {
-        $nonce_error = $this->check_cart_nonce( $request );
+        $nonce_error = StoreFuse_Bridge_Auth::check_cart_nonce( $request );
         if ( $nonce_error ) {
             return $nonce_error;
         }
 
-        $this->ensure_cart();
+        StoreFuse_Bridge_Auth::ensure_cart();
+
+        $idempotency_key = sanitize_text_field( (string) ( $request->get_header( 'Idempotency-Key' ) ?? '' ) );
+        if ( $idempotency_key !== '' ) {
+            $cached = get_transient( 'sfb_idem_' . md5( $idempotency_key ) );
+            if ( is_array( $cached ) && isset( $cached['body'], $cached['status'] ) ) {
+                return StoreFuse_Bridge_Response::with_no_store(
+                    new WP_REST_Response( $cached['body'], (int) $cached['status'] )
+                );
+            }
+        }
 
         if ( WC()->cart->is_empty() ) {
             return StoreFuse_Bridge_Errors::validation_error( 'Your cart is empty.' );
+        }
+
+        $stock_error = $this->validate_cart_stock();
+        if ( $stock_error ) {
+            return $stock_error;
         }
 
         $billing           = (array) $request->get_param( 'billing' );
@@ -266,6 +281,11 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         WC()->cart->calculate_shipping();
         WC()->cart->calculate_totals();
 
+        $shipping_error = $this->validate_shipping_methods( $shipping_methods );
+        if ( $shipping_error ) {
+            return $shipping_error;
+        }
+
         // Build data array for WC_Checkout::create_order()
         $checkout_data = $this->build_checkout_data(
             $billing,
@@ -280,25 +300,30 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         try {
             $order_id = WC()->checkout()->create_order( $checkout_data );
         } catch ( Exception $e ) {
+            StoreFuse_Bridge_Logger::error( 'Checkout create_order exception', [ 'message' => $e->getMessage() ] );
             return StoreFuse_Bridge_Errors::checkout_failed( $e->getMessage() );
         }
 
         if ( is_wp_error( $order_id ) ) {
+            StoreFuse_Bridge_Logger::error( 'Checkout create_order failed', [ 'message' => $order_id->get_error_message() ] );
             return StoreFuse_Bridge_Errors::checkout_failed( $order_id->get_error_message() );
         }
 
         $order = wc_get_order( $order_id );
         if ( ! $order ) {
+            StoreFuse_Bridge_Logger::error( 'Checkout order missing after create', [ 'order_id' => (int) $order_id ] );
             return StoreFuse_Bridge_Errors::checkout_failed( 'Order could not be retrieved after creation.' );
         }
 
         do_action( 'woocommerce_checkout_order_created', $order );
+        do_action( 'woocommerce_checkout_order_processed', $order_id, $checkout_data, $order );
 
         // Process payment
         try {
             $payment_result = $gateway->process_payment( $order_id );
         } catch ( Exception $e ) {
             $order->update_status( 'failed' );
+            StoreFuse_Bridge_Logger::error( 'Checkout payment exception', [ 'order_id' => $order_id, 'message' => $e->getMessage() ] );
             return StoreFuse_Bridge_Errors::checkout_failed( $e->getMessage() );
         }
 
@@ -309,6 +334,7 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
                 : 'Payment could not be processed.';
             wc_clear_notices();
             $order->update_status( 'failed' );
+            StoreFuse_Bridge_Logger::warning( 'Checkout payment declined', [ 'order_id' => $order_id ] );
             return StoreFuse_Bridge_Errors::checkout_failed( $message );
         }
 
@@ -338,7 +364,20 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
             ],
         ], $order );
 
-        return StoreFuse_Bridge_Response::with_no_store( $this->success( $data, 'storefuse.checkout.v1' ) );
+        $response = StoreFuse_Bridge_Response::with_no_store( $this->success( $data, 'storefuse.checkout.v1' ) );
+
+        if ( $idempotency_key !== '' ) {
+            set_transient(
+                'sfb_idem_' . md5( $idempotency_key ),
+                [
+                    'status' => $response->get_status(),
+                    'body'   => $response->get_data(),
+                ],
+                DAY_IN_SECONDS
+            );
+        }
+
+        return $response;
     }
 
     /**
@@ -349,7 +388,7 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
      * No nonce required - this is a read-only URL lookup, no state is changed.
      */
     public function get_redirect_url( WP_REST_Request $request ): WP_REST_Response {
-        $this->ensure_cart();
+        StoreFuse_Bridge_Auth::ensure_cart();
 
         if ( WC()->cart->is_empty() ) {
             return StoreFuse_Bridge_Errors::validation_error( 'Your cart is empty.' );
@@ -403,43 +442,63 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
 
     // ── Helpers 
 
-    /**
-     * Validate the X-WC-Nonce header on checkout write operations.
-     * Returns null on success, error response on failure.
-     */
-    private function check_cart_nonce( WP_REST_Request $request ): ?WP_REST_Response {
-        $nonce = $request->get_header( 'X-WC-Nonce' );
-        if ( ! $nonce || ! wp_verify_nonce( $nonce, 'wc_store_api' ) ) {
-            return StoreFuse_Bridge_Errors::invalid_nonce();
+    private function validate_billing( array $billing ): ?WP_REST_Response {
+        $fields = WC()->checkout()->get_checkout_fields( 'billing' );
+
+        foreach ( $fields as $key => $field ) {
+            if ( empty( $field['required'] ) ) {
+                continue;
+            }
+            $name = (string) preg_replace( '/^billing_/', '', $key );
+            if ( empty( $billing[ $name ] ) ) {
+                return StoreFuse_Bridge_Errors::validation_error(
+                    sprintf( 'Billing %s is required.', str_replace( '_', ' ', $name ) )
+                );
+            }
+        }
+
+        if ( ! empty( $billing['email'] ) && ! is_email( $billing['email'] ) ) {
+            return StoreFuse_Bridge_Errors::invalid_email();
+        }
+
+        return null;
+    }
+
+    private function validate_cart_stock(): ?WP_REST_Response {
+        foreach ( WC()->cart->get_cart() as $item ) {
+            $product = $item['data'] ?? null;
+            if ( ! ( $product instanceof WC_Product ) ) {
+                continue;
+            }
+            if ( ! $product->is_purchasable() ) {
+                return StoreFuse_Bridge_Errors::validation_error(
+                    sprintf( '%s is not available for purchase.', $product->get_name() )
+                );
+            }
+            if ( ! $product->has_enough_stock( $item['quantity'] ) ) {
+                return StoreFuse_Bridge_Errors::out_of_stock();
+            }
         }
         return null;
     }
 
     /**
-     * Ensure WooCommerce cart and session are initialised before access.
+     * @param list<string> $shipping_methods
      */
-    private function ensure_cart(): void {
-        if ( ! WC()->cart ) {
-            wc_load_cart();
+    private function validate_shipping_methods( array $shipping_methods ): ?WP_REST_Response {
+        if ( ! WC()->cart->needs_shipping() || empty( $shipping_methods ) ) {
+            return null;
         }
-    }
 
-    /**
-     * Validate required billing fields.
-     */
-    private function validate_billing( array $billing ): ?WP_REST_Response {
-        $required = [ 'first_name', 'last_name', 'email', 'address_1', 'city', 'country' ];
-
-        foreach ( $required as $field ) {
-            if ( empty( $billing[ $field ] ) ) {
-                return StoreFuse_Bridge_Errors::validation_error(
-                    sprintf( 'Billing %s is required.', str_replace( '_', ' ', $field ) )
-                );
+        $packages = WC()->shipping()->get_packages();
+        foreach ( $packages as $index => $package ) {
+            $chosen = $shipping_methods[ $index ] ?? $shipping_methods[0] ?? '';
+            if ( $chosen === '' ) {
+                continue;
             }
-        }
-
-        if ( ! is_email( $billing['email'] ) ) {
-            return StoreFuse_Bridge_Errors::invalid_email();
+            if ( ! isset( $package['rates'][ $chosen ] ) ) {
+                return StoreFuse_Bridge_Errors::validation_error( 'Selected shipping method is not available.' );
+            }
         }
 
         return null;
@@ -530,8 +589,6 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
     /**
      * Normalise WC checkout fields array into the StoreFuse field shape.
      */
-    // format_order and format_order_address are now in StoreFuse_Bridge_Format (shared with Orders module).
-
     private function format_fields( array $wc_fields ): array {
         $result = [];
 
@@ -553,98 +610,6 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         usort( $result, static fn( $a, $b ) => $a['priority'] <=> $b['priority'] );
 
         return $result;
-    }
-
-    /**
-     * @deprecated Delegated to StoreFuse_Bridge_Format::order(). Kept for safety; remove in next cleanup.
-     */
-    private function format_order( WC_Abstract_Order $order ): array {
-        $line_items = [];
-
-        foreach ( $order->get_items() as $item ) {
-            /** @var WC_Order_Item_Product $item */
-            $product_id   = $item->get_product_id();
-            $product      = $item->get_product();
-            $product_slug = get_post_field( 'post_name', $product_id );
-            $thumbnail    = ( $product instanceof WC_Product )
-                ? StoreFuse_Bridge_Format::image( (int) $product->get_image_id() )
-                : null;
-
-            $line_items[] = [
-                'name'     => $item->get_name(),
-                'quantity' => $item->get_quantity(),
-                'subtotal' => StoreFuse_Bridge_Format::price( (float) $item->get_subtotal() ),
-                'total'    => StoreFuse_Bridge_Format::price( (float) $item->get_total() ),
-                'product'  => [
-                    'id'        => $product_id,
-                    'slug'      => $product_slug,
-                    'href'      => $product_slug ? '/product/' . $product_slug : '',
-                    'thumbnail' => $thumbnail,
-                ],
-            ];
-        }
-
-        return apply_filters( 'storefuse_bridge_order_data', [
-            'id'                   => $order->get_id(),
-            'number'               => $order->get_order_number(),
-            'key'                  => $order->get_order_key(),
-            'status'               => $order->get_status(),
-            'date_created'         => StoreFuse_Bridge_Format::date(
-                $order->get_date_created()
-                    ? $order->get_date_created()->date( 'Y-m-d H:i:s' )
-                    : ''
-            ),
-            'currency'             => $order->get_currency(),
-            'billing'              => $this->format_order_address( $order, 'billing' ),
-            'shipping'             => $this->format_order_address( $order, 'shipping' ),
-            'items'                => $line_items,
-            'totals'               => [
-                'subtotal' => StoreFuse_Bridge_Format::price( (float) $order->get_subtotal() ),
-                'discount' => StoreFuse_Bridge_Format::price( (float) $order->get_discount_total() ),
-                'shipping' => StoreFuse_Bridge_Format::price( (float) $order->get_shipping_total() ),
-                'tax'      => StoreFuse_Bridge_Format::price( (float) $order->get_total_tax() ),
-                'total'    => StoreFuse_Bridge_Format::price( (float) $order->get_total( 'edit' ) ),
-            ],
-            'payment_method'       => $order->get_payment_method(),
-            'payment_method_title' => $order->get_payment_method_title(),
-            'customer_note'        => $order->get_customer_note(),
-            'is_paid'              => $order->is_paid(),
-        ], $order );
-    }
-
-    /**
-     * Normalise billing or shipping address from a WC order.
-     */
-    private function format_order_address( WC_Abstract_Order $order, string $type ): array {
-        if ( $type === 'billing' ) {
-            return [
-                'first_name' => $order->get_billing_first_name(),
-                'last_name'  => $order->get_billing_last_name(),
-                'company'    => $order->get_billing_company(),
-                'address_1'  => $order->get_billing_address_1(),
-                'address_2'  => $order->get_billing_address_2(),
-                'city'       => $order->get_billing_city(),
-                'state'      => $order->get_billing_state(),
-                'postcode'   => $order->get_billing_postcode(),
-                'country'    => $order->get_billing_country(),
-                'email'      => $order->get_billing_email(),
-                'phone'      => $order->get_billing_phone(),
-            ];
-        }
-
-        return [
-            'first_name' => $order->get_shipping_first_name(),
-            'last_name'  => $order->get_shipping_last_name(),
-            'company'    => $order->get_shipping_company(),
-            'address_1'  => $order->get_shipping_address_1(),
-            'address_2'  => $order->get_shipping_address_2(),
-            'city'       => $order->get_shipping_city(),
-            'state'      => $order->get_shipping_state(),
-            'postcode'   => $order->get_shipping_postcode(),
-            'country'    => $order->get_shipping_country(),
-            'email'      => '',
-            'phone'      => '',
-        ];
     }
 
     /**

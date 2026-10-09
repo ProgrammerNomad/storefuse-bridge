@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<ruleset name="StoreFuse Bridge CI">
+	<description>PHPCS in CI: PHPUnit tests (PSR-12, PHPUnit method names allowed).</description>
+	<file>tests</file>
+	<exclude-pattern>tests/wp-stubs.php</exclude-pattern>
+	<rule ref="PSR12">
+		<exclude name="PSR1.Classes.ClassDeclaration.MissingNamespace"/>
+		<exclude name="PSR1.Methods.CamelCapsMethodName"/>
+	</rule>
+</ruleset>

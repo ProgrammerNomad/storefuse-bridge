@@ -2,6 +2,10 @@
 
 StoreFuse Bridge is the **only** commerce API your Next.js app should call: `/wp-json/storefuse/v1/*`.
 
+Auth overview (cookies today; shared with mobile doc): [auth-strategy.md](../auth-strategy.md).
+
+Checkout and pending/async payments: [checkout-payments.md](checkout-payments.md).
+
 ---
 
 ## Architecture patterns

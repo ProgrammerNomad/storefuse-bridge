@@ -78,6 +78,52 @@ class StoreFuse_Bridge_Format {
         }
     }
 
+    // ── Cart line ────────────────────────────────────────────────────────────
+
+    /**
+     * Normalise a WooCommerce cart line into the StoreFuse cart item shape.
+     *
+     * @param array<string, mixed> $item WC cart line from WC()->cart->get_cart().
+     */
+    public static function cart_item( string $cart_item_key, array $item ): ?array {
+        /** @var WC_Product|false $product */
+        $product = $item['data'] ?? null;
+        if ( ! $product instanceof WC_Product ) {
+            return null;
+        }
+
+        $variation_attrs = [];
+        if ( ! empty( $item['variation'] ) ) {
+            foreach ( $item['variation'] as $attr_key => $attr_value ) {
+                $label                       = wc_attribute_label(
+                    str_replace( 'attribute_', '', $attr_key )
+                );
+                $variation_attrs[ $label ] = $attr_value;
+            }
+        }
+
+        $parent_slug = get_post_field( 'post_name', $item['product_id'] );
+
+        return apply_filters(
+            'storefuse_bridge_cart_item',
+            [
+                'key'          => $cart_item_key,
+                'product_id'   => $item['product_id'],
+                'variation_id' => $item['variation_id'],
+                'name'         => $product->get_name(),
+                'slug'         => $parent_slug,
+                'href'         => '/product/' . $parent_slug,
+                'quantity'     => $item['quantity'],
+                'thumbnail'    => self::image( (int) $product->get_image_id() ),
+                'price'        => self::price( (float) $product->get_price() ),
+                'subtotal'     => self::price( (float) $item['line_subtotal'] ),
+                'variation'    => $variation_attrs,
+                'is_in_stock'  => $product->is_in_stock(),
+            ],
+            $item
+        );
+    }
+
     // ── Product 
 
     /**
@@ -213,6 +259,37 @@ class StoreFuse_Bridge_Format {
         ];
     }
 
+    // ── Address ──────────────────────────────────────────────────────────────
+
+    /**
+     * Canonical customer/order address shape.
+     *
+     * @param array<string, mixed> $address   WC customer billing/shipping array.
+     * @param string               $type      billing|shipping (shipping omits email/phone when absent).
+     */
+    public static function address( array $address, string $type = 'billing' ): array {
+        $formatted = [
+            'first_name' => (string) ( $address['first_name'] ?? '' ),
+            'last_name'  => (string) ( $address['last_name'] ?? '' ),
+            'company'    => (string) ( $address['company'] ?? '' ),
+            'address_1'  => (string) ( $address['address_1'] ?? '' ),
+            'address_2'  => (string) ( $address['address_2'] ?? '' ),
+            'city'       => (string) ( $address['city'] ?? '' ),
+            'state'      => (string) ( $address['state'] ?? '' ),
+            'postcode'   => (string) ( $address['postcode'] ?? '' ),
+            'country'    => (string) ( $address['country'] ?? '' ),
+            'email'      => (string) ( $address['email'] ?? '' ),
+            'phone'      => (string) ( $address['phone'] ?? '' ),
+        ];
+
+        if ( $type === 'shipping' && ! isset( $address['email'] ) && ! isset( $address['phone'] ) ) {
+            $formatted['email'] = '';
+            $formatted['phone'] = '';
+        }
+
+        return $formatted;
+    }
+
     // ── Order ───
 
     /**
@@ -280,7 +357,7 @@ class StoreFuse_Bridge_Format {
      */
     public static function order_address( WC_Abstract_Order $order, string $type ): array {
         if ( $type === 'billing' ) {
-            return [
+            return self::address( [
                 'first_name' => $order->get_billing_first_name(),
                 'last_name'  => $order->get_billing_last_name(),
                 'company'    => $order->get_billing_company(),
@@ -292,10 +369,10 @@ class StoreFuse_Bridge_Format {
                 'country'    => $order->get_billing_country(),
                 'email'      => $order->get_billing_email(),
                 'phone'      => $order->get_billing_phone(),
-            ];
+            ], 'billing' );
         }
 
-        return [
+        return self::address( [
             'first_name' => $order->get_shipping_first_name(),
             'last_name'  => $order->get_shipping_last_name(),
             'company'    => $order->get_shipping_company(),
@@ -305,9 +382,7 @@ class StoreFuse_Bridge_Format {
             'state'      => $order->get_shipping_state(),
             'postcode'   => $order->get_shipping_postcode(),
             'country'    => $order->get_shipping_country(),
-            'email'      => '',
-            'phone'      => '',
-        ];
+        ], 'shipping' );
     }
 
     /**

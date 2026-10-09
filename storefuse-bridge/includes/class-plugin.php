@@ -10,6 +10,8 @@ final class StoreFuse_Bridge {
 
     private static ?self $instance = null;
 
+    private static ?StoreFuse_Bridge_Request_Context $request_context = null;
+
     /** @var StoreFuse_Bridge_Module[] */
     private array $modules = [];
 
@@ -25,8 +27,39 @@ final class StoreFuse_Bridge {
 
     public function init(): void {
         $this->load_textdomain();
+        $this->check_woocommerce_version();
+        StoreFuse_Bridge_Auth::init();
         $this->load_modules();
         $this->register_hooks();
+    }
+
+    public static function request_context(): ?StoreFuse_Bridge_Request_Context {
+        return self::$request_context;
+    }
+
+    private static function set_request_context( StoreFuse_Bridge_Request_Context $context ): void {
+        self::$request_context = $context;
+    }
+
+    private function check_woocommerce_version(): void {
+        if ( ! defined( 'WC_VERSION' ) ) {
+            return;
+        }
+        if ( version_compare( WC_VERSION, STOREFUSE_BRIDGE_MIN_WC, '>=' ) ) {
+            return;
+        }
+        add_action( 'admin_notices', static function (): void {
+            if ( ! current_user_can( 'manage_woocommerce' ) ) {
+                return;
+            }
+            echo '<div class="notice notice-warning"><p>';
+            printf(
+                esc_html__( 'StoreFuse Bridge requires WooCommerce %1$s or newer (you are running %2$s).', 'storefuse-bridge' ),
+                esc_html( STOREFUSE_BRIDGE_MIN_WC ),
+                esc_html( WC_VERSION )
+            );
+            echo '</p></div>';
+        } );
     }
 
     // ── Text domain ──────────────────────────────────────────────────────────
@@ -88,6 +121,8 @@ final class StoreFuse_Bridge {
         // CORS for browser / SPA clients
         StoreFuse_Bridge_Cors::init();
 
+        add_filter( 'rest_pre_dispatch', [ $this, 'bootstrap_request_context' ], 5, 3 );
+
         // Normalize all error responses from our namespace to the StoreFuse envelope.
         // This covers: WP_Error from permission_callback, WP core auth errors (rest_cookie_invalid_nonce),
         // and any other WP-generated error that reaches the client.
@@ -122,6 +157,19 @@ final class StoreFuse_Bridge {
      * Responses already in the StoreFuse envelope are left untouched (they lack a top-level
      * 'code' key, so the guard condition does not match).
      */
+    /**
+     * @param mixed           $result
+     * @param WP_REST_Server  $server
+     * @param WP_REST_Request $request
+     * @return mixed
+     */
+    public function bootstrap_request_context( mixed $result, WP_REST_Server $server, WP_REST_Request $request ): mixed {
+        if ( strpos( $request->get_route(), '/storefuse/v1/' ) === 0 ) {
+            self::set_request_context( StoreFuse_Bridge_Request_Context::from_request( $request ) );
+        }
+        return $result;
+    }
+
     public function normalize_error_response(
         WP_REST_Response $response,
         WP_REST_Server $server,

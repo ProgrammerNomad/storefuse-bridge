@@ -101,7 +101,7 @@ class StoreFuse_Bridge_Module_Reviews extends StoreFuse_Bridge_Module {
             return StoreFuse_Bridge_Errors::not_authenticated();
         }
 
-        $nonce_error = $this->check_nonce( $request );
+        $nonce_error = StoreFuse_Bridge_Auth::check_wp_rest_nonce( $request );
         if ( $nonce_error ) {
             return $nonce_error;
         }
@@ -129,13 +129,15 @@ class StoreFuse_Bridge_Module_Reviews extends StoreFuse_Bridge_Module {
             return StoreFuse_Bridge_Errors::validation_error( 'You have already reviewed this product.' );
         }
 
+        $approved = get_option( 'comment_moderation' ) ? 0 : 1;
+
         $review_id = wp_insert_comment( [
             'comment_post_ID'      => $product_id,
             'comment_author'       => $user->display_name,
             'comment_author_email' => $user->user_email,
             'comment_content'      => $content,
             'comment_type'         => 'review',
-            'comment_approved'     => 1,
+            'comment_approved'     => $approved,
             'user_id'              => $user->ID,
         ] );
 
@@ -159,14 +161,6 @@ class StoreFuse_Bridge_Module_Reviews extends StoreFuse_Bridge_Module {
     }
 
     // ── Helpers 
-
-    private function check_nonce( WP_REST_Request $request ): ?WP_REST_Response {
-        $nonce = $request->get_header( 'X-WP-Nonce' );
-        if ( ! $nonce || ! wp_verify_nonce( $nonce, 'wp_rest' ) ) {
-            return StoreFuse_Bridge_Errors::invalid_nonce();
-        }
-        return null;
-    }
 
     private function format_review( WP_Comment $comment ): array {
         $rating   = (int)  get_comment_meta( $comment->comment_ID, 'rating',       true );
@@ -192,15 +186,25 @@ class StoreFuse_Bridge_Module_Reviews extends StoreFuse_Bridge_Module {
             return [];
         }
 
-        $breakdown = [];
-        for ( $star = 5; $star >= 1; $star-- ) {
-            $breakdown[ $star ] = (int) get_comments( [
-                'post_id'    => $product_id,
-                'status'     => 'approve',
-                'type'       => 'review',
-                'count'      => true,
-                'meta_query' => [ [ 'key' => 'rating', 'value' => $star, 'compare' => '=', 'type' => 'NUMERIC' ] ],
-            ] );
+        global $wpdb;
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT cm.meta_value AS rating, COUNT(*) AS total
+                 FROM {$wpdb->comments} c
+                 INNER JOIN {$wpdb->commentmeta} cm ON cm.comment_id = c.comment_ID AND cm.meta_key = 'rating'
+                 WHERE c.comment_post_ID = %d AND c.comment_approved = '1' AND c.comment_type = 'review'
+                 GROUP BY cm.meta_value",
+                $product_id
+            ),
+            ARRAY_A
+        );
+
+        $breakdown = array_fill( 1, 5, 0 );
+        foreach ( $rows as $row ) {
+            $star = (int) $row['rating'];
+            if ( $star >= 1 && $star <= 5 ) {
+                $breakdown[ $star ] = (int) $row['total'];
+            }
         }
 
         return [

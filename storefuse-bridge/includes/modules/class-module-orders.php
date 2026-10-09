@@ -99,14 +99,9 @@ class StoreFuse_Bridge_Module_Orders extends StoreFuse_Bridge_Module {
             $args['status'] = 'wc-' . ltrim( $status, 'wc-' );
         }
 
-        $orders = wc_get_orders( $args );
-
-        // Count without pagination for meta
-        $count_args           = $args;
-        $count_args['limit']  = -1;
-        $count_args['return'] = 'ids';
-        unset( $count_args['page'] );
-        $total = count( wc_get_orders( $count_args ) );
+        $paginated = wc_get_orders( array_merge( $args, [ 'paginate' => true ] ) );
+        $orders    = $paginated->orders ?? [];
+        $total     = (int) ( $paginated->total ?? 0 );
 
         $response = $this->success(
             [
@@ -147,7 +142,7 @@ class StoreFuse_Bridge_Module_Orders extends StoreFuse_Bridge_Module {
             return StoreFuse_Bridge_Errors::not_authenticated();
         }
 
-        $nonce_error = $this->check_nonce( $request );
+        $nonce_error = StoreFuse_Bridge_Auth::check_wp_rest_nonce( $request );
         if ( $nonce_error ) {
             return $nonce_error;
         }
@@ -230,7 +225,7 @@ class StoreFuse_Bridge_Module_Orders extends StoreFuse_Bridge_Module {
             return StoreFuse_Bridge_Errors::not_authenticated();
         }
 
-        $nonce_error = $this->check_nonce( $request );
+        $nonce_error = StoreFuse_Bridge_Auth::check_wp_rest_nonce( $request );
         if ( $nonce_error ) {
             return $nonce_error;
         }
@@ -348,14 +343,6 @@ class StoreFuse_Bridge_Module_Orders extends StoreFuse_Bridge_Module {
     }
 
     // ── Helpers 
-
-    private function check_nonce( WP_REST_Request $request ): ?WP_REST_Response {
-        $nonce = $request->get_header( 'X-WP-Nonce' );
-        if ( ! $nonce || ! wp_verify_nonce( $nonce, 'wp_rest' ) ) {
-            return StoreFuse_Bridge_Errors::invalid_nonce();
-        }
-        return null;
-    }
 
     /**
      * Load and ownership-verify a WC order.

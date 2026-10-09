@@ -190,6 +190,13 @@ class StoreFuse_Bridge_Admin {
         StoreFuse_Bridge_Cache::flush_all();
         do_action( 'storefuse_bridge_settings_updated' );
 
+        add_settings_error(
+            'storefuse_bridge_settings',
+            'settings_updated',
+            __( 'Settings saved.', 'storefuse-bridge' ),
+            'success'
+        );
+
         return $clean;
     }
 
@@ -228,6 +235,7 @@ class StoreFuse_Bridge_Admin {
                 'testing'       => __( 'Testing…', 'storefuse-bridge' ),
                 'testOk'        => __( 'Webhook responded successfully.', 'storefuse-bridge' ),
                 'testFail'      => __( 'Webhook test failed.', 'storefuse-bridge' ),
+                'confirmFlush'  => __( 'Flush all StoreFuse Bridge cache?', 'storefuse-bridge' ),
             ],
         ] );
     }

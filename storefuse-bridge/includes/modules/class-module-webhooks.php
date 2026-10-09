@@ -119,6 +119,12 @@ class StoreFuse_Bridge_Module_Webhooks extends StoreFuse_Bridge_Module {
             return;
         }
 
+        $url_check = StoreFuse_Bridge_Url_Validator::validate_webhook_base_url( $storefront_url );
+        if ( is_wp_error( $url_check ) ) {
+            StoreFuse_Bridge_Logger::warning( 'Webhook URL blocked', [ 'reason' => $url_check->get_error_message() ] );
+            return;
+        }
+
         $path     = (string) StoreFuse_Bridge_Settings::get( 'storefront_revalidate_path', '/api/revalidate' );
         $path     = '/' . ltrim( $path, '/' );
         $endpoint = rtrim( esc_url_raw( $storefront_url ), '/' ) . $path;
@@ -152,6 +158,10 @@ class StoreFuse_Bridge_Module_Webhooks extends StoreFuse_Bridge_Module {
             'blocking' => false, // fire-and-forget; do not block the WP request
         ] );
 
+        if ( is_wp_error( $response ) ) {
+            StoreFuse_Bridge_Logger::error( 'Webhook delivery failed', [ 'type' => $type, 'message' => $response->get_error_message() ] );
+        }
+
         $this->log_delivery( $type, $slug, $response );
     }
 
@@ -169,6 +179,15 @@ class StoreFuse_Bridge_Module_Webhooks extends StoreFuse_Bridge_Module {
                 'ok'     => false,
                 'status' => 'error',
                 'error'  => __( 'Storefront URL and revalidation secret are required.', 'storefuse-bridge' ),
+            ];
+        }
+
+        $url_check = StoreFuse_Bridge_Url_Validator::validate_webhook_base_url( $storefront_url );
+        if ( is_wp_error( $url_check ) ) {
+            return [
+                'ok'     => false,
+                'status' => 'error',
+                'error'  => $url_check->get_error_message(),
             ];
         }
 

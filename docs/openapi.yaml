@@ -1,0 +1,268 @@
+openapi: 3.1.0
+info:
+  title: StoreFuse Bridge API
+  version: 1.0.0
+  description: |
+    Headless WooCommerce REST API. Full shapes: verified-routes.md and api-reference.md.
+servers:
+  - url: https://{host}/wp-json/storefuse/v1
+    variables:
+      host:
+        default: example.com
+tags:
+  - name: catalog
+  - name: auth
+  - name: cart
+  - name: checkout
+  - name: account
+paths:
+  /status:
+    get:
+      tags: [catalog]
+      summary: Health and version
+  /settings:
+    get:
+      tags: [catalog]
+      summary: Store config and tax display hints
+  /navigation:
+    get:
+      tags: [catalog]
+      summary: Navigation menus
+  /homepage:
+    get:
+      tags: [catalog]
+      summary: Homepage aggregates
+  /products:
+    get:
+      tags: [catalog]
+      summary: Product list
+  /products/{slug}:
+    get:
+      tags: [catalog]
+      summary: Single product
+    parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+  /products/{slug}/notify:
+    post:
+      tags: [catalog]
+      summary: Back-in-stock notify signup
+  /categories:
+    get:
+      tags: [catalog]
+      summary: Category list
+  /categories/{slug}:
+    get:
+      tags: [catalog]
+      summary: Single category
+  /search:
+    get:
+      tags: [catalog]
+      summary: Product search
+  /auth/nonce:
+    get:
+      tags: [auth]
+      summary: Bootstrap wp_rest nonce (rate limited)
+  /auth/register:
+    post:
+      tags: [auth]
+      summary: Register customer
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Login (auth cookie)
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Logout
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Current user or guest probe
+  /auth/forgot-password:
+    post:
+      tags: [auth]
+      summary: Request password reset email
+  /auth/reset-password:
+    post:
+      tags: [auth]
+      summary: Complete password reset
+  /cart:
+    get:
+      tags: [cart]
+      summary: Current session cart
+  /cart/add:
+    post:
+      tags: [cart]
+      summary: Add line item
+  /cart/update:
+    put:
+      tags: [cart]
+      summary: Update line quantity
+  /cart/remove:
+    delete:
+      tags: [cart]
+      summary: Remove line item
+  /cart/coupon:
+    post:
+      tags: [cart]
+      summary: Apply coupon
+    delete:
+      tags: [cart]
+      summary: Remove coupon
+  /checkout/config:
+    get:
+      tags: [checkout]
+      summary: Checkout field config
+  /checkout/payment-methods:
+    get:
+      tags: [checkout]
+      summary: Available gateways
+  /checkout/shipping-methods:
+    get:
+      tags: [checkout]
+      summary: Shipping packages
+  /checkout:
+    post:
+      tags: [checkout]
+      summary: Place order
+      parameters:
+        - in: header
+          name: X-WC-Nonce
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            type: string
+  /checkout/redirect-url:
+    post:
+      tags: [checkout]
+      summary: Gateway redirect URL
+  /orders/{key}:
+    get:
+      tags: [checkout]
+      summary: Thank-you order by key
+  /account:
+    get:
+      tags: [account]
+      summary: Customer profile
+    put:
+      tags: [account]
+      summary: Update profile
+  /account/change-password:
+    post:
+      tags: [account]
+      summary: Change password
+  /orders:
+    get:
+      tags: [account]
+      summary: Order history
+  /orders/{id}:
+    get:
+      tags: [account]
+      summary: Order detail
+  /orders/{id}/cancel:
+    post:
+      tags: [account]
+      summary: Cancel order
+  /orders/{id}/reorder:
+    post:
+      tags: [account]
+      summary: Reorder items
+  /orders/{id}/return-request:
+    post:
+      tags: [account]
+      summary: Return request
+  /orders/{id}/tracking:
+    get:
+      tags: [account]
+      summary: Shipment tracking
+  /orders/{id}/invoice:
+    get:
+      tags: [account]
+      summary: Invoice data
+  /addresses:
+    get:
+      tags: [account]
+      summary: Saved addresses
+  /addresses/billing:
+    put:
+      tags: [account]
+      summary: Update billing address
+  /addresses/shipping:
+    put:
+      tags: [account]
+      summary: Update shipping address
+  /wishlist:
+    get:
+      tags: [account]
+      summary: Wishlist
+  /wishlist/add:
+    post:
+      tags: [account]
+      summary: Add wishlist item
+  /wishlist/remove:
+    delete:
+      tags: [account]
+      summary: Remove wishlist item
+  /downloads:
+    get:
+      tags: [account]
+      summary: Downloadable products
+  /reviews:
+    get:
+      tags: [catalog]
+      summary: Product reviews
+    post:
+      tags: [account]
+      summary: Submit review
+  /posts:
+    get:
+      tags: [catalog]
+      summary: Blog posts
+  /posts/{slug}:
+    get:
+      tags: [catalog]
+      summary: Single post
+  /utils/countries:
+    get:
+      tags: [catalog]
+      summary: Country list
+  /utils/pincode/{pincode}:
+    get:
+      tags: [catalog]
+      summary: Pincode lookup
+components:
+  schemas:
+    Envelope:
+      type: object
+      properties:
+        schema:
+          type: string
+        api_version:
+          type: string
+        data:
+          type: object
+    ErrorEnvelope:
+      type: object
+      properties:
+        schema:
+          type: string
+          example: storefuse.error.v1
+        api_version:
+          type: string
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            status:
+              type: integer

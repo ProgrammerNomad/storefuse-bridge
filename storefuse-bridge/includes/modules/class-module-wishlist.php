@@ -65,7 +65,7 @@ class StoreFuse_Bridge_Module_Wishlist extends StoreFuse_Bridge_Module {
             return StoreFuse_Bridge_Errors::not_authenticated();
         }
 
-        $nonce_error = $this->check_nonce( $request );
+        $nonce_error = StoreFuse_Bridge_Auth::check_wp_rest_nonce( $request );
         if ( $nonce_error ) {
             return $nonce_error;
         }
@@ -80,7 +80,12 @@ class StoreFuse_Bridge_Module_Wishlist extends StoreFuse_Bridge_Module {
         $user_id  = get_current_user_id();
         $wishlist = $this->get_raw_ids( $user_id );
 
+        $max_items = (int) apply_filters( 'storefuse_bridge_wishlist_max_items', (int) StoreFuse_Bridge_Settings::get( 'wishlist_max_items', 100 ) );
+
         if ( ! in_array( $product_id, $wishlist, true ) ) {
+            if ( count( $wishlist ) >= $max_items ) {
+                return StoreFuse_Bridge_Errors::validation_error( 'Wishlist is full.' );
+            }
             $wishlist[] = $product_id;
             update_user_meta( $user_id, self::META_KEY, $wishlist );
         }
@@ -98,7 +103,7 @@ class StoreFuse_Bridge_Module_Wishlist extends StoreFuse_Bridge_Module {
             return StoreFuse_Bridge_Errors::not_authenticated();
         }
 
-        $nonce_error = $this->check_nonce( $request );
+        $nonce_error = StoreFuse_Bridge_Auth::check_wp_rest_nonce( $request );
         if ( $nonce_error ) {
             return $nonce_error;
         }
@@ -123,14 +128,6 @@ class StoreFuse_Bridge_Module_Wishlist extends StoreFuse_Bridge_Module {
 
     // ── Helpers 
 
-    private function check_nonce( WP_REST_Request $request ): ?WP_REST_Response {
-        $nonce = $request->get_header( 'X-WP-Nonce' );
-        if ( ! $nonce || ! wp_verify_nonce( $nonce, 'wp_rest' ) ) {
-            return StoreFuse_Bridge_Errors::invalid_nonce();
-        }
-        return null;
-    }
-
     /** @return int[] */
     private function get_raw_ids( int $user_id ): array {
         $meta = get_user_meta( $user_id, self::META_KEY, true );
@@ -141,8 +138,22 @@ class StoreFuse_Bridge_Module_Wishlist extends StoreFuse_Bridge_Module {
         $ids   = $this->get_raw_ids( $user_id );
         $items = [];
 
+        if ( empty( $ids ) ) {
+            return [];
+        }
+
+        $products = wc_get_products( [
+            'include' => $ids,
+            'limit'   => count( $ids ),
+            'status'  => 'publish',
+        ] );
+        $by_id = [];
+        foreach ( $products as $product ) {
+            $by_id[ $product->get_id() ] = $product;
+        }
+
         foreach ( $ids as $product_id ) {
-            $product = wc_get_product( $product_id );
+            $product = $by_id[ $product_id ] ?? null;
             if ( ! $product || ! $product->is_visible() ) {
                 continue;
             }

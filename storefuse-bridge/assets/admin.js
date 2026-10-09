@@ -7,7 +7,22 @@
     $(function () {
         $('.sfb-color-picker').wpColorPicker();
         initCheckoutPanels();
+        initHomepageAccordions();
     });
+
+    function initHomepageAccordions() {
+        if (!$('body').hasClass('storefuse-bridge_page_storefuse-bridge-homepage')) {
+            return;
+        }
+        $('.sfb-card').addClass('sfb-collapsible').each(function (i) {
+            if (i > 0) {
+                $(this).addClass('sfb-collapsed');
+            }
+        });
+        $(document).on('click', '.sfb-collapsible > h2', function () {
+            $(this).closest('.sfb-card').toggleClass('sfb-collapsed');
+        });
+    }
 
     function initCheckoutPanels() {
         var $radios = $('input[name="storefuse_bridge_settings[checkout_mode]"]');
@@ -71,6 +86,9 @@
     }
 
     $(document).on('click', '#sfb-flush-cache', function () {
+        if (!confirm(i18n.confirmFlush || 'Flush all StoreFuse Bridge cache?')) {
+            return;
+        }
         var $btn = $(this);
         var group = $btn.data('group') || 'all';
         flushGroup(group, $('#sfb-flush-result'), $btn, 'Flush All Cache');

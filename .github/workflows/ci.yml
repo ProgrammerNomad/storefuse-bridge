@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  php:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.0', '8.1', '8.2', '8.3']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - name: Syntax check plugin PHP
+        run: find storefuse-bridge -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Install Composer dev dependencies
+        run: composer install --no-interaction --prefer-dist
+      - name: PHPUnit
+        run: composer test
+      - name: PHPCS (scoped)
+        run: vendor/bin/phpcs -p

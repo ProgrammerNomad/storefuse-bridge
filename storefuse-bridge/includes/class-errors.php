@@ -101,6 +101,30 @@ class StoreFuse_Bridge_Errors {
         return self::make( 'out_of_stock', 'One or more items in your cart are out of stock.', 410 );
     }
 
+    public static function quantity_below_minimum( int $min ): WP_REST_Response {
+        return self::make(
+            'quantity_below_minimum',
+            sprintf( 'Minimum purchase quantity is %d.', $min ),
+            400
+        );
+    }
+
+    public static function quantity_above_maximum( int $max ): WP_REST_Response {
+        return self::make(
+            'quantity_above_maximum',
+            sprintf( 'Maximum purchase quantity is %d.', $max ),
+            400
+        );
+    }
+
+    public static function sold_individually(): WP_REST_Response {
+        return self::make(
+            'sold_individually',
+            'This product can only be purchased once per cart.',
+            400
+        );
+    }
+
     // ── 422 Unprocessable ────────────────────────────────────────────────────
 
     public static function coupon_invalid(): WP_REST_Response {

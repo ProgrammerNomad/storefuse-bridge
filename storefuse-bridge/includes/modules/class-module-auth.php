@@ -42,8 +42,9 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
                     'sanitize_callback' => 'sanitize_email',
                 ],
                 'password'   => [
-                    'required' => true,
-                    'type'     => 'string',
+                    'required'            => true,
+                    'type'                => 'string',
+                    'validate_callback'   => [ $this, 'validate_password_length' ],
                 ],
                 'first_name' => [
                     'required'          => false,
@@ -123,8 +124,9 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
                     'sanitize_callback' => 'sanitize_text_field',
                 ],
                 'password' => [
-                    'required' => true,
-                    'type'     => 'string',
+                    'required'            => true,
+                    'type'                => 'string',
+                    'validate_callback'   => [ $this, 'validate_password_length' ],
                 ],
             ],
         ] );
@@ -140,6 +142,14 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
      * requests.  Public endpoint - no auth required.
      */
     public function get_nonce( WP_REST_Request $request ): WP_REST_Response {
+        $ip = sanitize_text_field(
+            (string) ( $request->get_header( 'x-forwarded-for' ) ?: ( $_SERVER['REMOTE_ADDR'] ?? 'unknown' ) )
+        );
+        $throttle = StoreFuse_Bridge_Auth::throttle( 'auth_nonce', substr( $ip, 0, 64 ) );
+        if ( $throttle ) {
+            return $throttle;
+        }
+
         $response = $this->success(
             [ 'nonce' => wp_create_nonce( 'wp_rest' ) ],
             'storefuse.auth.v1'
@@ -201,9 +211,17 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
             return StoreFuse_Bridge_Errors::invalid_email();
         }
 
+        do_action( 'storefuse_bridge_login_attempt', $email, $request );
+
+        $throttle = StoreFuse_Bridge_Auth::throttle( 'login', strtolower( $email ) );
+        if ( $throttle ) {
+            return $throttle;
+        }
+
         $user = get_user_by( 'email', $email );
         if ( ! $user ) {
             // Return invalid_credentials (not user_not_found) to prevent email enumeration
+            do_action( 'storefuse_bridge_login_failed', $email, 'unknown_user', $request );
             return StoreFuse_Bridge_Errors::invalid_credentials();
         }
 
@@ -217,6 +235,7 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
         );
 
         if ( is_wp_error( $result ) ) {
+            do_action( 'storefuse_bridge_login_failed', $email, $result->get_error_code(), $request );
             return StoreFuse_Bridge_Errors::invalid_credentials();
         }
 
@@ -251,12 +270,21 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
      */
     public function me( WP_REST_Request $request ): WP_REST_Response {
         if ( ! is_user_logged_in() ) {
-            return StoreFuse_Bridge_Errors::not_authenticated();
+            $response = $this->success(
+                [
+                    'logged_in' => false,
+                ],
+                'storefuse.auth.v1'
+            );
+            return StoreFuse_Bridge_Response::with_no_store( $response );
         }
 
         $user = wp_get_current_user();
 
-        $response = $this->success( $this->format_user( $user ), 'storefuse.auth.v1' );
+        $data = $this->format_user( $user );
+        $data['logged_in'] = true;
+
+        $response = $this->success( $data, 'storefuse.auth.v1' );
 
         return StoreFuse_Bridge_Response::with_no_store( $response );
     }
@@ -272,6 +300,11 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
 
         if ( ! is_email( $email ) ) {
             return StoreFuse_Bridge_Errors::invalid_email();
+        }
+
+        $throttle = StoreFuse_Bridge_Auth::throttle( 'forgot_password', strtolower( $email ) );
+        if ( $throttle ) {
+            return $throttle;
         }
 
         // Only send if account exists - but always return success to prevent enumeration
@@ -349,8 +382,8 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
                 'last_name'    => $user->last_name,
                 'display_name' => $user->display_name,
                 'avatar_url'   => get_avatar_url( $user->ID, [ 'size' => 96 ] ),
-                'billing'      => $this->format_address( $customer->get_billing() ),
-                'shipping'     => $this->format_address( $customer->get_shipping() ),
+                'billing'      => StoreFuse_Bridge_Format::address( $customer->get_billing(), 'billing' ),
+                'shipping'     => StoreFuse_Bridge_Format::address( $customer->get_shipping(), 'shipping' ),
                 'nonce'        => wp_create_nonce( 'wp_rest' ),
                 'cart_nonce'   => wp_create_nonce( 'wc_store_api' ),
             ],
@@ -359,22 +392,20 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
     }
 
     /**
-     * Normalise a WooCommerce address array into the StoreFuse address shape.
+     * REST validate_callback for password fields (WC default minimum 8 characters).
+     *
+     * @param mixed $value
      */
-    private function format_address( array $address ): array {
-        return [
-            'first_name' => $address['first_name'] ?? '',
-            'last_name'  => $address['last_name']  ?? '',
-            'company'    => $address['company']    ?? '',
-            'address_1'  => $address['address_1']  ?? '',
-            'address_2'  => $address['address_2']  ?? '',
-            'city'       => $address['city']       ?? '',
-            'state'      => $address['state']      ?? '',
-            'postcode'   => $address['postcode']   ?? '',
-            'country'    => $address['country']    ?? '',
-            'phone'      => $address['phone']      ?? '',
-            'email'      => $address['email']      ?? '',
-        ];
+    public function validate_password_length( $value ): bool|WP_Error {
+        $password = is_string( $value ) ? $value : '';
+        $min      = (int) apply_filters( 'storefuse_bridge_password_min_length', 8 );
+        if ( strlen( $password ) < $min ) {
+            return new WP_Error(
+                'password_too_short',
+                sprintf( 'Password must be at least %d characters.', $min )
+            );
+        }
+        return true;
     }
 
     /**

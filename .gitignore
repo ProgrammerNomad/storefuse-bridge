@@ -1,0 +1,35 @@
+# Composer (dev dependencies; CI runs `composer install`)
+/vendor/
+
+# PHPUnit
+.phpunit.result.cache
+.phpunit.cache
+
+# Node (if added for admin/build tooling)
+/node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / editor
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*~
+
+# Local secrets and env
+.env
+.env.*
+!.env.example
+
+# Release / scratch artifacts
+*.zip
+/build/
+/dist/
+
+# Optional: local WordPress test installs (uncomment if you keep WP in-repo)
+# /wordpress/
+# /wp/

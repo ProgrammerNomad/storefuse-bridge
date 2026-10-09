@@ -26,7 +26,9 @@ delete_option( 'storefuse_bridge_cache_keys' );
 // Flush any remaining transients using the sfb_ prefix
 global $wpdb;
 $wpdb->query(
-    "DELETE FROM {$wpdb->options}
-     WHERE option_name LIKE '_transient_sfb_%'
-        OR option_name LIKE '_transient_timeout_sfb_%'"
+    $wpdb->prepare(
+        "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+        '_transient_sfb_%',
+        '_transient_timeout_sfb_%'
+    )
 );
