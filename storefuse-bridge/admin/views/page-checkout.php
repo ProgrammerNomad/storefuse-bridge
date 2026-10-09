@@ -43,7 +43,7 @@ if ( function_exists( 'WC' ) && WC()->payment_gateways() ) {
                                        value="headless"
                                        id="sfb-mode-headless"
                                        <?php checked( $mode, 'headless' ); ?> />
-                                <?php esc_html_e( 'Headless - checkout UI stays on your storefront (requires Store API–compatible gateways)', 'storefuse-bridge' ); ?>
+                                <?php esc_html_e( 'Headless - checkout UI stays on your storefront (requires Store API-compatible gateways)', 'storefuse-bridge' ); ?>
                             </label>
                         </fieldset>
                     </td>

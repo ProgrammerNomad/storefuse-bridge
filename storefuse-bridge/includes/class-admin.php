@@ -11,12 +11,35 @@ class StoreFuse_Bridge_Admin {
         add_action( 'admin_init',            [ $this, 'register_settings' ] );
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
         add_action( 'admin_notices',         [ $this, 'dismiss_setup_notice_on_dashboard' ] );
+        add_filter( 'plugin_action_links_' . STOREFUSE_BRIDGE_BASENAME, [ $this, 'plugin_action_links' ] );
 
         add_action( 'wp_ajax_storefuse_bridge_flush_cache',       [ $this, 'ajax_flush_cache' ] );
         add_action( 'wp_ajax_storefuse_bridge_flush_cache_group', [ $this, 'ajax_flush_cache_group' ] );
         add_action( 'wp_ajax_storefuse_bridge_clear_webhook_log', [ $this, 'ajax_clear_webhook_log' ] );
         add_action( 'wp_ajax_storefuse_bridge_test_webhook',      [ $this, 'ajax_test_webhook' ] );
         add_action( 'wp_ajax_storefuse_bridge_dismiss_setup',     [ $this, 'ajax_dismiss_setup_notice' ] );
+    }
+
+    /**
+     * Add Settings link on the Plugins list (WooCommerce-style).
+     *
+     * @param string[] $links Existing action links.
+     * @return string[]
+     */
+    public function plugin_action_links( array $links ): array {
+        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+            return $links;
+        }
+
+        $settings = sprintf(
+            '<a href="%s">%s</a>',
+            esc_url( admin_url( 'admin.php?page=storefuse-bridge' ) ),
+            esc_html__( 'Settings', 'storefuse-bridge' )
+        );
+
+        array_unshift( $links, $settings );
+
+        return $links;
     }
 
     public function register_menus(): void {
