@@ -229,6 +229,11 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
             return $nonce_error;
         }
 
+        $rate_limit = StoreFuse_Bridge_Auth::guard_session_write( $request, 'checkout_write' );
+        if ( $rate_limit ) {
+            return $rate_limit;
+        }
+
         StoreFuse_Bridge_Auth::ensure_cart();
 
         $idempotency_key = sanitize_text_field( (string) ( $request->get_header( 'Idempotency-Key' ) ?? '' ) );
@@ -455,6 +460,11 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         $nonce_error = StoreFuse_Bridge_Auth::check_cart_nonce( $request );
         if ( $nonce_error ) {
             return $nonce_error;
+        }
+
+        $rate_limit = StoreFuse_Bridge_Auth::guard_session_write( $request, 'checkout_write' );
+        if ( $rate_limit ) {
+            return $rate_limit;
         }
 
         StoreFuse_Bridge_Auth::ensure_cart();

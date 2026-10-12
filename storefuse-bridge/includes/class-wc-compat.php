@@ -104,4 +104,70 @@ class StoreFuse_Bridge_WC_Compat {
         global $wp_version;
         return $wp_version ?? '0.0.0';
     }
+
+    public static function woocommerce_active(): bool {
+        return class_exists( 'WooCommerce' ) && self::wc_version() !== '0.0.0';
+    }
+
+    /**
+     * Cheap DB connectivity probe for GET /status health.
+     */
+    public static function database_ok(): bool {
+        global $wpdb;
+        if ( ! isset( $wpdb ) || ! is_object( $wpdb ) ) {
+            return false;
+        }
+        if ( method_exists( $wpdb, 'check_connection' ) ) {
+            return (bool) $wpdb->check_connection();
+        }
+        return true;
+    }
+
+    /**
+     * Runtime health snapshot for GET /status (storefront probes).
+     *
+     * @return array<string, mixed>
+     */
+    public static function health_snapshot(): array {
+        $wc_active = self::woocommerce_active();
+        $wc_ok     = $wc_active && version_compare( self::wc_version(), STOREFUSE_BRIDGE_MIN_WC, '>=' );
+        $wp_ok     = version_compare( self::wp_version(), STOREFUSE_BRIDGE_MIN_WP, '>=' );
+        $php_ok    = version_compare( PHP_VERSION, STOREFUSE_BRIDGE_MIN_PHP, '>=' );
+        $db_ok     = self::database_ok();
+
+        $currency = function_exists( 'get_woocommerce_currency' ) ? (string) get_woocommerce_currency() : '';
+
+        return [
+            'ok'                   => $wc_ok && $wp_ok && $php_ok && $db_ok,
+            'woocommerce_active'   => $wc_active,
+            'database_ok'          => $db_ok,
+            'checked_at'           => gmdate( 'c' ),
+            'requirements'         => [
+                'wordpress'   => [
+                    'required' => STOREFUSE_BRIDGE_MIN_WP,
+                    'current'  => self::wp_version(),
+                    'ok'       => $wp_ok,
+                ],
+                'woocommerce' => [
+                    'required' => STOREFUSE_BRIDGE_MIN_WC,
+                    'current'  => self::wc_version(),
+                    'active'   => $wc_active,
+                    'ok'       => $wc_ok,
+                ],
+                'php'         => [
+                    'required' => STOREFUSE_BRIDGE_MIN_PHP,
+                    'current'  => PHP_VERSION,
+                    'ok'       => $php_ok,
+                ],
+            ],
+            'store'                => [
+                'currency'     => $currency,
+                'locale'       => function_exists( 'get_locale' ) ? get_locale() : '',
+                'multilingual' => [
+                    'wpml'     => self::has_wpml(),
+                    'polylang' => self::has_polylang(),
+                ],
+            ],
+        ];
+    }
 }

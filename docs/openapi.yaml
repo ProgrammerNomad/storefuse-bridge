@@ -19,7 +19,31 @@ paths:
   /status:
     get:
       tags: [catalog]
-      summary: Health and version
+      summary: Health, modules, and feature flags
+      responses:
+        '200':
+          description: Plugin status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                          woocommerce:
+                            type: string
+                          health:
+                            type: object
+                            properties:
+                              woocommerce_active:
+                                type: boolean
+                              database_ok:
+                                type: boolean
   /settings:
     get:
       tags: [catalog]
@@ -39,7 +63,7 @@ paths:
   /products/{slug}:
     get:
       tags: [catalog]
-      summary: Single product
+      summary: Single product (variable products include attributes + variations[])
     parameters:
       - name: slug
         in: path
@@ -61,7 +85,46 @@ paths:
   /search:
     get:
       tags: [catalog]
-      summary: Product search
+      summary: Product search (rate limited per IP)
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 12
+      responses:
+        '200':
+          description: Search hits with pagination meta
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [items, meta]
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              type: object
+                          meta:
+                            $ref: '#/components/schemas/ListPaginationMeta'
   /auth/nonce:
     get:
       tags: [auth]
@@ -148,7 +211,7 @@ paths:
   /checkout:
     post:
       tags: [checkout]
-      summary: Place order
+      summary: Place order (rate limited per IP; optional Idempotency-Key)
       parameters:
         - in: header
           name: X-WC-Nonce
@@ -260,6 +323,23 @@ paths:
       summary: Pincode lookup
 components:
   schemas:
+    ListPaginationMeta:
+      type: object
+      required: [total, total_pages, page, per_page]
+      properties:
+        total:
+          type: integer
+          description: Total matching records
+        total_pages:
+          type: integer
+          description: ceil(total / per_page); 0 when total is 0
+        page:
+          type: integer
+        per_page:
+          type: integer
+        query:
+          type: string
+          description: Present on search responses only
     Envelope:
       type: object
       properties:

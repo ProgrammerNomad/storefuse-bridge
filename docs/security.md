@@ -35,6 +35,19 @@ Checkout and webhook failures log via WooCommerce logger (`storefuse-bridge` sou
 
 IP throttling uses `REMOTE_ADDR` unless `storefuse_bridge_trusted_proxies` lists your reverse proxy. Do not trust `X-Forwarded-For` without that configuration.
 
+Built-in transients throttle (filters `storefuse_bridge_auth_max_attempts` for auth, `storefuse_bridge_rate_limit_max` for catalog/session writes, and `storefuse_bridge_auth_throttle_window` for window seconds):
+
+| Action key | Routes |
+|------------|--------|
+| `auth_nonce` | `GET /auth/nonce` |
+| `login`, `forgot_password` | Auth writes |
+| `notify_signup` | `POST /products/{slug}/notify` |
+| `search` | `GET /search` |
+| `cart_write` | Cart mutations (`POST/PUT/DELETE /cart/*`) |
+| `checkout_write` | `POST /checkout`, `POST /checkout/redirect-url` |
+
+Cart and checkout writes also fire `storefuse_bridge_rate_limit_hit` so edge rate limiters can count requests without patching handlers.
+
 ## Webhook SSRF (residual)
 
 URL validation at send time reduces SSRF; DNS rebinding/time-of-check-time-of-use risks remain - use a fixed storefront hostname and monitor outbound calls.

@@ -11,6 +11,7 @@ Headless WooCommerce API for **Next.js**, **Flutter**, and other clients - one n
 | [auth-strategy.md](auth-strategy.md) | Web + mobile auth phases (SSOT) |
 | [security.md](security.md) | Threat model and hardening notes |
 | [openapi.yaml](openapi.yaml) | OpenAPI 3.1 skeleton |
+| [api-versioning.md](api-versioning.md) | Deprecation, ETag, password-reset URL priority |
 | [release-checklist.md](release-checklist.md) | Ship and upgrade checklist |
 | [release-bar.md](release-bar.md) | v1.0 release decision (audit follow-up) |
 | [acceptance-gates.md](acceptance-gates.md) | 14-gate production scorecard |
@@ -19,6 +20,7 @@ Headless WooCommerce API for **Next.js**, **Flutter**, and other clients - one n
 | [clients/checkout-payments.md](clients/checkout-payments.md) | Async / pending payment client flow |
 | [clients/nextjs.md](clients/nextjs.md) | Browser cookies, CORS, ISR |
 | [clients/mobile-flutter.md](clients/mobile-flutter.md) | Native session, cart token, nonces |
+| [clients/webhooks-flutter.md](clients/webhooks-flutter.md) | Outbound ISR webhooks vs mobile push |
 | [clients/generic-web.md](clients/generic-web.md) | SPA / other web clients |
 | [extensions.md](extensions.md) | WordPress filters and actions (v0.1) |
 | [extension-api-v0.2.md](extension-api-v0.2.md) | Planned module registration spec (doc only) |

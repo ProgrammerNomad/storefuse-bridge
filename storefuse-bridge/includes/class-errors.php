@@ -67,6 +67,14 @@ class StoreFuse_Bridge_Errors {
         return self::make( 'forbidden', 'You do not have permission to access this resource.', 403 );
     }
 
+    public static function rate_limit_exceeded( int $retry_after = 0 ): WP_REST_Response {
+        $response = self::make( 'rate_limit_exceeded', 'Too many requests. Please try again later.', 429 );
+        if ( $retry_after > 0 ) {
+            $response->header( 'Retry-After', (string) $retry_after );
+        }
+        return $response;
+    }
+
     // ── 404 Not Found ────────────────────────────────────────────────────────
 
     public static function product_not_found(): WP_REST_Response {

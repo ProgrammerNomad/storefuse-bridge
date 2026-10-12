@@ -128,6 +128,7 @@ final class StoreFuse_Bridge {
         // This covers: WP_Error from permission_callback, WP core auth errors (rest_cookie_invalid_nonce),
         // and any other WP-generated error that reaches the client.
         add_filter( 'rest_post_dispatch', [ $this, 'normalize_error_response' ], 10, 3 );
+        add_filter( 'rest_post_dispatch', [ $this, 'finalize_storefuse_response' ], 15, 3 );
 
         // Register nav menu locations so admins can assign menus in Appearance → Menus
         add_action( 'after_setup_theme', function (): void {
@@ -211,4 +212,26 @@ final class StoreFuse_Bridge {
         ] );
 
         return $response;
-    }}
+    }
+
+    /**
+     * Version policy, ETag, and 304 handling for StoreFuse success responses.
+     */
+    public function finalize_storefuse_response(
+        WP_REST_Response $response,
+        WP_REST_Server $server,
+        WP_REST_Request $request
+    ): WP_REST_Response {
+        if ( strpos( $request->get_route(), '/storefuse/v1/' ) !== 0 ) {
+            return $response;
+        }
+
+        $status = $response->get_status();
+        if ( $status >= 200 && $status < 400 ) {
+            $response = StoreFuse_Bridge_Response::with_version_policy( $response );
+            $response = StoreFuse_Bridge_Response::apply_conditional_etag( $response, $request );
+        }
+
+        return $response;
+    }
+}

@@ -18,12 +18,13 @@ class StoreFuse_Bridge_Module_Posts extends StoreFuse_Bridge_Module {
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ $this, 'get_posts' ],
             'permission_callback' => '__return_true',
-            'args'                => [
-                'page'     => [ 'required' => false, 'type' => 'integer', 'default' => 1,  'minimum' => 1 ],
-                'per_page' => [ 'required' => false, 'type' => 'integer', 'default' => 10, 'minimum' => 1, 'maximum' => 50 ],
-                'category' => [ 'required' => false, 'type' => 'string',  'default' => '', 'sanitize_callback' => 'sanitize_text_field' ],
-                'tag'      => [ 'required' => false, 'type' => 'string',  'default' => '', 'sanitize_callback' => 'sanitize_text_field' ],
-            ],
+            'args'                => array_merge(
+                StoreFuse_Bridge_Rest_Schema::pagination_query_args( 10, 50 ),
+                [
+                    'category' => [ 'required' => false, 'type' => 'string',  'default' => '', 'sanitize_callback' => 'sanitize_text_field' ],
+                    'tag'      => [ 'required' => false, 'type' => 'string',  'default' => '', 'sanitize_callback' => 'sanitize_text_field' ],
+                ]
+            ),
         ] );
 
         register_rest_route( $this->namespace, '/posts/(?P<slug>[a-zA-Z0-9_-]+)', [

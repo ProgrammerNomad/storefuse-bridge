@@ -139,9 +139,9 @@ class StoreFuse_Bridge_Module_Cart extends StoreFuse_Bridge_Module {
      * Pass `variation_id` and a `variation` map for variable products.
      */
     public function add_item( WP_REST_Request $request ): WP_REST_Response {
-        $nonce_error = StoreFuse_Bridge_Auth::check_cart_nonce( $request );
-        if ( $nonce_error ) {
-            return $nonce_error;
+        $blocked = $this->begin_cart_write( $request );
+        if ( $blocked ) {
+            return $blocked;
         }
 
         StoreFuse_Bridge_Auth::ensure_cart();
@@ -214,9 +214,9 @@ class StoreFuse_Bridge_Module_Cart extends StoreFuse_Bridge_Module {
      * Set quantity to 0 to remove the item.
      */
     public function update_item( WP_REST_Request $request ): WP_REST_Response {
-        $nonce_error = StoreFuse_Bridge_Auth::check_cart_nonce( $request );
-        if ( $nonce_error ) {
-            return $nonce_error;
+        $blocked = $this->begin_cart_write( $request );
+        if ( $blocked ) {
+            return $blocked;
         }
 
         StoreFuse_Bridge_Auth::ensure_cart();
@@ -261,9 +261,9 @@ class StoreFuse_Bridge_Module_Cart extends StoreFuse_Bridge_Module {
      * Remove a specific line item from the cart by its cart_item_key.
      */
     public function remove_item( WP_REST_Request $request ): WP_REST_Response {
-        $nonce_error = StoreFuse_Bridge_Auth::check_cart_nonce( $request );
-        if ( $nonce_error ) {
-            return $nonce_error;
+        $blocked = $this->begin_cart_write( $request );
+        if ( $blocked ) {
+            return $blocked;
         }
 
         StoreFuse_Bridge_Auth::ensure_cart();
@@ -286,9 +286,9 @@ class StoreFuse_Bridge_Module_Cart extends StoreFuse_Bridge_Module {
      * Apply a coupon code to the cart.
      */
     public function apply_coupon( WP_REST_Request $request ): WP_REST_Response {
-        $nonce_error = StoreFuse_Bridge_Auth::check_cart_nonce( $request );
-        if ( $nonce_error ) {
-            return $nonce_error;
+        $blocked = $this->begin_cart_write( $request );
+        if ( $blocked ) {
+            return $blocked;
         }
 
         StoreFuse_Bridge_Auth::ensure_cart();
@@ -322,9 +322,9 @@ class StoreFuse_Bridge_Module_Cart extends StoreFuse_Bridge_Module {
      * Remove an applied coupon from the cart.
      */
     public function remove_coupon( WP_REST_Request $request ): WP_REST_Response {
-        $nonce_error = StoreFuse_Bridge_Auth::check_cart_nonce( $request );
-        if ( $nonce_error ) {
-            return $nonce_error;
+        $blocked = $this->begin_cart_write( $request );
+        if ( $blocked ) {
+            return $blocked;
         }
 
         StoreFuse_Bridge_Auth::ensure_cart();
@@ -342,6 +342,18 @@ class StoreFuse_Bridge_Module_Cart extends StoreFuse_Bridge_Module {
     }
 
     // ── Helpers 
+
+    /**
+     * Nonce check, rate limit, and write hook for cart mutations.
+     */
+    private function begin_cart_write( WP_REST_Request $request ): ?WP_REST_Response {
+        $nonce_error = StoreFuse_Bridge_Auth::check_cart_nonce( $request );
+        if ( $nonce_error ) {
+            return $nonce_error;
+        }
+
+        return StoreFuse_Bridge_Auth::guard_session_write( $request, 'cart_write' );
+    }
 
     /**
      * Build the standard cart response with session headers.

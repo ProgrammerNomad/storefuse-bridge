@@ -10,6 +10,18 @@ if ( ! defined( 'STOREFUSE_BRIDGE_VERSION' ) ) {
     define( 'STOREFUSE_BRIDGE_VERSION', '1.0.2' );
 }
 
+if ( ! defined( 'STOREFUSE_BRIDGE_MIN_WC' ) ) {
+    define( 'STOREFUSE_BRIDGE_MIN_WC', '7.0' );
+}
+
+if ( ! defined( 'STOREFUSE_BRIDGE_MIN_WP' ) ) {
+    define( 'STOREFUSE_BRIDGE_MIN_WP', '6.0' );
+}
+
+if ( ! defined( 'STOREFUSE_BRIDGE_MIN_PHP' ) ) {
+    define( 'STOREFUSE_BRIDGE_MIN_PHP', '8.0' );
+}
+
 if ( ! defined( 'DAY_IN_SECONDS' ) ) {
     define( 'DAY_IN_SECONDS', 86400 );
 }
@@ -152,13 +164,38 @@ if ( ! function_exists( 'wp_parse_url' ) ) {
     }
 }
 
+if ( ! class_exists( 'WP_REST_Request' ) ) {
+    class WP_REST_Request {
+        /** @var array<string, string> */
+        private array $headers = [];
+
+        public function __construct(
+            private string $method,
+            private string $route
+        ) {
+        }
+
+        public function set_header( string $name, string $value ): void {
+            $this->headers[ strtolower( $name ) ] = $value;
+        }
+
+        public function get_header( string $name ): string {
+            return $this->headers[ strtolower( $name ) ] ?? '';
+        }
+    }
+}
+
 if ( ! class_exists( 'WP_REST_Response' ) ) {
     class WP_REST_Response {
-        /** @param array<string, mixed> $data */
-        public function __construct(
-            private array $data,
-            private int $status = 200
-        ) {
+        /** @var array<string, mixed> */
+        private array $data;
+
+        /** @var array<string, string|string[]> */
+        private array $headers = [];
+
+        /** @param array<string, mixed>|null $data */
+        public function __construct( $data, private int $status = 200 ) {
+            $this->data = is_array( $data ) ? $data : [];
         }
 
         /** @return array<string, mixed> */
@@ -166,8 +203,39 @@ if ( ! class_exists( 'WP_REST_Response' ) ) {
             return $this->data;
         }
 
+        public function set_data( $data ): void {
+            $this->data = is_array( $data ) ? $data : [];
+        }
+
         public function get_status(): int {
             return $this->status;
         }
+
+        public function header( string $name, $value ): void {
+            $this->headers[ $name ] = $value;
+        }
+
+        /** @return array<string, string|string[]> */
+        public function get_headers(): array {
+            return $this->headers;
+        }
+    }
+}
+
+if ( ! function_exists( 'sanitize_text_field' ) ) {
+    function sanitize_text_field( string $value ): string {
+        return trim( $value );
+    }
+}
+
+if ( ! function_exists( 'sanitize_key' ) ) {
+    function sanitize_key( string $key ): string {
+        return strtolower( preg_replace( '/[^a-z0-9_\-]/', '', $key ) ?? '' );
+    }
+}
+
+if ( ! function_exists( 'do_action' ) ) {
+    function do_action( string $hook, ...$args ): void {
+        unset( $hook, $args );
     }
 }

@@ -25,8 +25,10 @@ class StoreFuse_Bridge_Module_Status extends StoreFuse_Bridge_Module {
     }
 
     public function get_status( WP_REST_Request $request ): WP_REST_Response {
+        $health = StoreFuse_Bridge_WC_Compat::health_snapshot();
+
         $data = [
-            'status'        => 'ok',
+            'status'        => ! empty( $health['ok'] ) ? 'ok' : 'degraded',
             'plugin'        => 'StoreFuse Bridge',
             'version'       => STOREFUSE_BRIDGE_VERSION,
             'wordpress'     => StoreFuse_Bridge_WC_Compat::wp_version(),
@@ -36,6 +38,7 @@ class StoreFuse_Bridge_Module_Status extends StoreFuse_Bridge_Module {
             'api_namespace' => 'storefuse/v1',
             'modules'       => $this->module_map(),
             'features'      => StoreFuse_Bridge_WC_Compat::features(),
+            'health'        => $health,
         ];
 
         /**

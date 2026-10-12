@@ -62,4 +62,57 @@ class StoreFuse_Bridge_Response {
         $response->header( 'Cache-Control', 'no-store' );
         return $response;
     }
+
+    /**
+     * v1 versioning / future deprecation headers (see docs/api-versioning.md).
+     */
+    public static function with_version_policy( WP_REST_Response $response ): WP_REST_Response {
+        $response->header( 'X-StoreFuse-API-Version', 'v1' );
+
+        $successor = apply_filters( 'storefuse_bridge_api_successor_link', '' );
+        if ( is_string( $successor ) && $successor !== '' ) {
+            $response->header( 'Link', '<' . $successor . '>; rel="successor-version"' );
+        }
+
+        $sunset = apply_filters( 'storefuse_bridge_v1_sunset', '' );
+        if ( is_string( $sunset ) && $sunset !== '' ) {
+            $response->header( 'Deprecation', 'true' );
+            $response->header( 'Sunset', $sunset );
+        }
+
+        return $response;
+    }
+
+    /**
+     * Weak ETag + If-None-Match for publicly cacheable JSON (CDN/browser coordination).
+     */
+    public static function apply_conditional_etag( WP_REST_Response $response, WP_REST_Request $request ): WP_REST_Response {
+        $headers = $response->get_headers();
+        $cache   = $headers['Cache-Control'] ?? '';
+        if ( ! is_string( $cache ) || ! str_contains( $cache, 'public' ) ) {
+            return $response;
+        }
+
+        $data = $response->get_data();
+        if ( ! is_array( $data ) ) {
+            return $response;
+        }
+
+        $etag = 'W/"' . md5( (string) wp_json_encode( $data ) ) . '"';
+        $response->header( 'ETag', $etag );
+
+        $inm = $request->get_header( 'if-none-match' );
+        if ( $inm && trim( $inm ) === $etag ) {
+            $not_modified = new WP_REST_Response( null, 304 );
+            $not_modified->header( 'ETag', $etag );
+            foreach ( [ 'Cache-Control', 'X-StoreFuse-Cache', 'X-StoreFuse-Bridge-Version', 'X-StoreFuse-API-Version' ] as $name ) {
+                if ( isset( $headers[ $name ] ) ) {
+                    $not_modified->header( $name, $headers[ $name ] );
+                }
+            }
+            return self::with_version_policy( $not_modified );
+        }
+
+        return $response;
+    }
 }

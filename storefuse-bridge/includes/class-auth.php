@@ -157,13 +157,41 @@ class StoreFuse_Bridge_Auth {
      * @return WP_REST_Response|null Null when allowed.
      */
     public static function is_throttled( string $action, string $identifier ): bool {
-        $max     = (int) apply_filters( 'storefuse_bridge_auth_max_attempts', 10, $action );
-        $key     = 'sfb_throttle_' . sanitize_key( $action ) . '_' . md5( $identifier );
+        $max = self::max_attempts_for( $action );
+        $key = 'sfb_throttle_' . sanitize_key( $action ) . '_' . md5( $identifier );
         return (int) get_transient( $key ) >= $max;
     }
 
+    /**
+     * @return int Filterable per action (auth vs catalog/checkout).
+     */
+    public static function max_attempts_for( string $action ): int {
+        $defaults = [
+            'auth_nonce'      => 30,
+            'login'           => 10,
+            'forgot_password' => 5,
+            'notify_signup'   => 10,
+            'search'          => 60,
+            'checkout'        => 8,
+            'checkout_write'  => 8,
+            'cart_write'      => 120,
+            'session_write'   => 60,
+        ];
+        $default = $defaults[ $action ] ?? 10;
+
+        if ( in_array( $action, [ 'login', 'forgot_password', 'auth_nonce' ], true ) ) {
+            return (int) apply_filters( 'storefuse_bridge_auth_max_attempts', $default, $action );
+        }
+
+        return (int) apply_filters( 'storefuse_bridge_rate_limit_max', $default, $action );
+    }
+
+    public static function throttle_window_for( string $action ): int {
+        return (int) apply_filters( 'storefuse_bridge_auth_throttle_window', 900, $action );
+    }
+
     public static function record_throttle_failure( string $action, string $identifier ): void {
-        $window  = (int) apply_filters( 'storefuse_bridge_auth_throttle_window', 900, $action );
+        $window  = self::throttle_window_for( $action );
         $key     = 'sfb_throttle_' . sanitize_key( $action ) . '_' . md5( $identifier );
         $attempt = (int) get_transient( $key );
         set_transient( $key, $attempt + 1, $window );
@@ -174,12 +202,52 @@ class StoreFuse_Bridge_Auth {
      *
      * @return WP_REST_Response|null Null when allowed.
      */
-    public static function throttle( string $action, string $identifier ): ?WP_REST_Response {
+    public static function throttle( string $action, string $identifier, bool $rate_limit_response = false ): ?WP_REST_Response {
         if ( self::is_throttled( $action, $identifier ) ) {
+            if ( $rate_limit_response ) {
+                return StoreFuse_Bridge_Errors::rate_limit_exceeded( self::throttle_window_for( $action ) );
+            }
             return StoreFuse_Bridge_Errors::validation_error( 'Too many attempts. Please try again later.' );
         }
         self::record_throttle_failure( $action, $identifier );
         return null;
+    }
+
+    /**
+     * IP-scoped throttle for public or session endpoints (search, cart, checkout).
+     *
+     * @return WP_REST_Response|null Null when allowed.
+     */
+    public static function throttle_by_ip( WP_REST_Request $request, string $action, bool $rate_limit_response = true ): ?WP_REST_Response {
+        if ( ! class_exists( 'StoreFuse_Bridge_Http_Request' ) ) {
+            return null;
+        }
+        $ip = StoreFuse_Bridge_Http_Request::client_ip( $request );
+
+        return self::throttle( $action, 'ip:' . substr( $ip, 0, 64 ), $rate_limit_response );
+    }
+
+    /**
+     * Hook point for server-side rate limiters on cart/checkout writes.
+     */
+    public static function observe_session_write( WP_REST_Request $request ): void {
+        /**
+         * Fires when a cart or checkout write handler runs (after permission_callback).
+         *
+         * @param WP_REST_Request $request Current REST request.
+         */
+        do_action( 'storefuse_bridge_rate_limit_hit', $request );
+    }
+
+    /**
+     * Rate limit + observe hook for cart/checkout mutating routes.
+     *
+     * @return WP_REST_Response|null Null when allowed.
+     */
+    public static function guard_session_write( WP_REST_Request $request, string $action = 'session_write' ): ?WP_REST_Response {
+        self::observe_session_write( $request );
+
+        return self::throttle_by_ip( $request, $action, true );
     }
 
     /**

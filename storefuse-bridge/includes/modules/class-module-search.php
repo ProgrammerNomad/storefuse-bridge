@@ -22,19 +22,7 @@ class StoreFuse_Bridge_Module_Search extends StoreFuse_Bridge_Module {
                     'type'              => 'string',
                     'sanitize_callback' => 'sanitize_text_field',
                 ],
-                'per_page' => [
-                    'type'              => 'integer',
-                    'default'           => 12,
-                    'minimum'           => 1,
-                    'maximum'           => 50,
-                    'sanitize_callback' => 'absint',
-                ],
-                'page'     => [
-                    'type'              => 'integer',
-                    'default'           => 1,
-                    'minimum'           => 1,
-                    'sanitize_callback' => 'absint',
-                ],
+                ...StoreFuse_Bridge_Rest_Schema::pagination_query_args( 12, 50 ),
             ],
         ] );
     }
@@ -42,6 +30,11 @@ class StoreFuse_Bridge_Module_Search extends StoreFuse_Bridge_Module {
     // ── GET /search ───────────────────────────────────────────────────────────
 
     public function search( WP_REST_Request $request ): WP_REST_Response {
+
+        $throttle = StoreFuse_Bridge_Auth::throttle_by_ip( $request, 'search' );
+        if ( $throttle ) {
+            return $throttle;
+        }
 
         $q        = trim( (string) $request->get_param( 'q' ) );
         $per_page = min( 50, max( 1, (int) $request->get_param( 'per_page' ) ) );

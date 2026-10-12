@@ -69,6 +69,12 @@ Reset emails use `storefront_url` + `storefront_reset_path` from WP settings, or
 
 ---
 
+## Webhooks and push
+
+Bridge outbound webhooks (ISR revalidation) are not consumed by the Flutter app directly. See [webhooks-flutter.md](webhooks-flutter.md) for signature verification vs FCM/order push patterns.
+
+---
+
 ## Testing notes
 
 - Test on real device/emulator against staging WP.

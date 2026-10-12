@@ -37,6 +37,28 @@ X-StoreFuse-Cart-Token: {session_id}
 
 These headers are set by the infrastructure, not by individual modules. Never mix them - session data cached publicly causes cart leaks and auth failures.
 
+**HTTP caching coordination (Cache-Control / ETag):**
+
+- Public catalog responses use `Cache-Control: public, max-age=…, s-maxage=…` via `StoreFuse_Bridge_Response::with_public_cache()`. TTL varies by route (see [Caching Summary](#caching-summary)).
+- `X-StoreFuse-Cache: HIT | MISS` indicates plugin transient cache for some catalog routes; it is independent of CDN caching.
+- Session, cart, checkout, auth, and account routes always use `Cache-Control: no-store`.
+- `GET /status` uses a short browser cache (`max-age=60`) so uptime probes stay fresh.
+- **ETag:** Public `Cache-Control: public` responses get a weak `ETag` (MD5 of the JSON envelope) via `StoreFuse_Bridge_Response::apply_conditional_etag()`. Send `If-None-Match` with the prior ETag to receive `304 Not Modified` (empty body). Session and `no-store` routes skip ETag. See [api-versioning.md](api-versioning.md) for deprecation headers (`Deprecation`, `Sunset`, `Link`).
+
+**Pagination meta** - list endpoints return `page`, `per_page`, `total`, and `total_pages` inside a `meta` object (or top-level `meta` on authenticated order lists):
+
+| Route | Items key | Meta location |
+|-------|-----------|---------------|
+| `GET /products` | `data.items` | `data.meta` |
+| `GET /search` | `data.items` | `data.meta` (includes `query`) |
+| `GET /posts` | `data.posts` | `data.meta` |
+| `GET /reviews` | `data.reviews` | `data.meta` |
+| `GET /orders` | `data.orders` | `data.meta` |
+
+`total_pages` is `ceil(total / per_page)` (0 when `total` is 0). Use `page` + `per_page` query params on all of the above.
+
+**API deprecation (v2 strategy):** See [api-versioning.md](api-versioning.md) for `X-StoreFuse-API-Version`, optional `Deprecation` / `Sunset` / `Link` filters, and ETag behavior.
+
 **Canonical data shapes** - two shapes used everywhere in all responses:
 
 Price:
@@ -212,10 +234,28 @@ Health check. Confirms plugin is active, lists available modules, and exposes a 
       "yoast_seo": true,
       "rank_math": false,
       "acf": false
+    },
+    "health": {
+      "ok": true,
+      "woocommerce_active": true,
+      "database_ok": true,
+      "checked_at": "2026-10-12T08:00:00+00:00",
+      "requirements": {
+        "wordpress": { "required": "6.0", "current": "6.5.3", "ok": true },
+        "woocommerce": { "required": "7.0", "current": "9.0.0", "active": true, "ok": true },
+        "php": { "required": "8.0", "current": "8.2.0", "ok": true }
+      },
+      "store": {
+        "currency": "INR",
+        "locale": "en_US",
+        "multilingual": { "wpml": false, "polylang": false }
+      }
     }
   }
 }
 ```
+
+Top-level `data.status` is **`ok`** when `health.ok` is true, otherwise **`degraded`**. `health.store.currency` / `locale` reflect WooCommerce and WordPress locale (multi-currency display uses WC settings; WPML/Polylang flags do not auto-translate API payloads).
 
 The `features` map is detected at request time via `class_exists()` and plugin settings. `headless_checkout` is `true` when the checkout module is enabled and **Checkout mode** in WP admin is set to **Headless**; otherwise `false`. The storefront reads this once on startup to adapt checkout UI. No hardcoded capability checks in client code.
 
@@ -387,9 +427,10 @@ Product list. Storefront-optimised with pagination.
   "schema": "storefuse.products.v1",
   "api_version": "0.1.0",
   "data": {
-    "products": [
+    "items": [
       {
         "id": "123",
+        "type": "simple",
         "slug": "handcrafted-diya-set",
         "name": "Handcrafted Diya Set",
         "short_description": "Set of 6 hand-painted clay diyas.",
@@ -412,10 +453,11 @@ Product list. Storefront-optimised with pagination.
         ],
         "attributes": [],
         "average_rating": "4.80",
-        "rating_count": 42
+        "rating_count": 42,
+        "variations": []
       }
     ],
-    "pagination": {
+    "meta": {
       "total": 87,
       "total_pages": 8,
       "page": 1,
@@ -425,7 +467,7 @@ Product list. Storefront-optimised with pagination.
 }
 ```
 
-Pagination note: `page` + `per_page` for v1. The `pagination` envelope is designed to be extended with `cursor` support without breaking existing consumers.
+List cards omit heavy fields; variable products on **`GET /products/{slug}`** include `type: "variable"`, selector `attributes[]`, and purchasable `variations[]` (each with `id`, `sku`, `attributes`, `price`, `stock_status`, `stock_quantity`, `image`). Pagination note: `page` + `per_page` for v1; `meta` may gain optional `cursor` fields in a future version without breaking existing consumers.
 
 ### GET /products/{slug}
 
@@ -618,26 +660,32 @@ If no plugin is listening, the bridge stores the email in a custom table and a b
 
 ### GET /search
 
-**Query params**: `q` (required, min 2 chars), `per_page` (default 10), `page`  
-**Cache**: 5 minutes per query string.
+**Query params**: `q` (required, min 2 chars), `per_page` (default 12, max 50), `page`  
+**Cache**: 5 minutes per query string. **Rate limit:** per-IP throttle (filter `storefuse_bridge_auth_max_attempts` with action `search`).
 
 ```json
 {
-  "results": [
-    {
-      "id": 123,
-      "name": "Handcrafted Diya Set",
-      "slug": "handcrafted-diya-set",
-      "price": 499,
-      "regular_price": 699,
-      "sale_price": 499,
-      "image": "https://yourstore.com/wp-content/uploads/diya.jpg",
-      "categories": ["Festive Decor"],
-      "in_stock": true
+  "schema": "storefuse.search.v1",
+  "data": {
+    "items": [
+      {
+        "id": 123,
+        "slug": "handcrafted-diya-set",
+        "name": "Handcrafted Diya Set",
+        "href": "/product/handcrafted-diya-set",
+        "price": { "raw": 499, "formatted": "Rs. 499.00", "currency": "INR", "symbol": "Rs." },
+        "on_sale": true,
+        "thumbnail": { "url": "https://...", "alt": "...", "width": 600, "height": 600, "srcset": [] }
+      }
+    ],
+    "meta": {
+      "total": 5,
+      "total_pages": 1,
+      "page": 1,
+      "per_page": 12,
+      "query": "diya"
     }
-  ],
-  "total": 5,
-  "query": "diya"
+  }
 }
 ```
 
@@ -860,7 +908,7 @@ Returns the current customer's order history.
       "total": { "raw": 998.00, "formatted": "Rs. 998.00" }
     }
   ],
-  "meta": { "total": 12, "page": 1, "per_page": 10 }
+  "meta": { "total": 12, "total_pages": 2, "page": 1, "per_page": 10 }
 }
 ```
 
@@ -1237,6 +1285,7 @@ All StoreFuse routes return the **StoreFuse error envelope** (normalized by `res
 
 | Code | HTTP | Meaning |
 |---|---|---|
+| `rate_limit_exceeded` | 429 | Too many requests in the throttle window (`Retry-After` header when applicable) |
 | `validation_error` | 400 | Request failed validation (message explains field/rule) |
 | `invalid_email` | 400 | Email address is invalid |
 | `invalid_nonce` | 403 | `X-WP-Nonce` or `X-WC-Nonce` missing or invalid |

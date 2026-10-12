@@ -406,9 +406,9 @@ class StoreFuse_Bridge_Module_Products extends StoreFuse_Bridge_Module {
     }
 
     private function collection_params(): array {
-        return [
-            'per_page'  => [ 'type' => 'integer', 'default' => 12, 'minimum' => 1, 'maximum' => 100, 'sanitize_callback' => 'absint' ],
-            'page'      => [ 'type' => 'integer', 'default' => 1,  'minimum' => 1, 'sanitize_callback' => 'absint' ],
+        return array_merge(
+            StoreFuse_Bridge_Rest_Schema::pagination_query_args( 12, 100 ),
+            [
             'category'  => [ 'type' => 'string',  'sanitize_callback' => 'sanitize_title' ],
             'tag'       => [ 'type' => 'string',  'sanitize_callback' => 'sanitize_title' ],
             'orderby'   => [ 'type' => 'string',  'default' => 'date',  'sanitize_callback' => 'sanitize_key' ],
@@ -418,6 +418,7 @@ class StoreFuse_Bridge_Module_Products extends StoreFuse_Bridge_Module {
             'min_price' => [ 'type' => 'number',  'sanitize_callback' => 'floatval' ],
             'max_price' => [ 'type' => 'number',  'sanitize_callback' => 'floatval' ],
             'search'    => [ 'type' => 'string',  'sanitize_callback' => 'sanitize_text_field' ],
-        ];
+            ]
+        );
     }
 }
