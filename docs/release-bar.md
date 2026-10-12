@@ -5,7 +5,7 @@
 
 ## Decision
 
-**Pursue full v1.0 success criteria** from the merged production readiness plan—not “tag 0.2.0 and stop.”
+**Pursue full v1.0 success criteria** from the merged production readiness plan-not “tag 0.2.0 and stop.”
 
 - Plugin semver moves to **1.0.0** when acceptance scaffolding, tests, and documentation gaps are closed.
 - **0.2.0** remains the changelog entry for the initial critical-fix pass; **1.0.0** is the production-gate release.

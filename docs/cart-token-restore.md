@@ -19,7 +19,7 @@ Base: `{site}/wp-json/storefuse/v1`. Record Bridge version from `GET /status` �
 | 1 | Guest: `GET /cart` → add item with `X-WC-Nonce` from `cart_nonce` | 200; save `Set-Cookie` and response `X-StoreFuse-Cart-Token` | ☐ |
 | 2 | Clear **WC session cookies only** (keep no cart cookies); `GET /cart` with `X-StoreFuse-Cart-Token` | 200; same line items as step 1 | ☐ |
 | 3 | `GET /auth/nonce` (or read `cart_nonce` from `GET /cart`); `PUT /cart/update` with token header + fresh `X-WC-Nonce` | 200; quantity change persists on next `GET /cart` | ☐ |
-| 4 | New device profile: token only, no cookies, `POST /cart/add` after bootstrap nonces | 200 or documented failure — record behavior | ☐ |
+| 4 | New device profile: token only, no cookies, `POST /cart/add` after bootstrap nonces | 200 or documented failure - record behavior | ☐ |
 
 **Bridge version tested:** __________  
 **WooCommerce version tested:** __________  

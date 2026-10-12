@@ -1,4 +1,4 @@
-# Security — StoreFuse Bridge (lightweight threat model)
+# Security - StoreFuse Bridge (lightweight threat model)
 
 ## Assets
 
@@ -29,7 +29,7 @@ Checkout and webhook failures log via WooCommerce logger (`storefuse-bridge` sou
 
 ## Cart session token
 
-`X-StoreFuse-Cart-Token` (1.0.1+ code) is an **HMAC-signed** value bound to a server-side session record — not a raw WooCommerce customer id. Treat token-only restore as **experimental** until [cart-token-restore.md](cart-token-restore.md) passes. Prefer WooCommerce cookies via a cookie jar when possible.
+`X-StoreFuse-Cart-Token` (1.0.1+ code) is an **HMAC-signed** value bound to a server-side session record - not a raw WooCommerce customer id. Treat token-only restore as **experimental** until [cart-token-restore.md](cart-token-restore.md) passes. Prefer WooCommerce cookies via a cookie jar when possible.
 
 ## Rate limiting and IP
 
@@ -37,7 +37,7 @@ IP throttling uses `REMOTE_ADDR` unless `storefuse_bridge_trusted_proxies` lists
 
 ## Webhook SSRF (residual)
 
-URL validation at send time reduces SSRF; DNS rebinding/time-of-check-time-of-use risks remain — use a fixed storefront hostname and monitor outbound calls.
+URL validation at send time reduces SSRF; DNS rebinding/time-of-check-time-of-use risks remain - use a fixed storefront hostname and monitor outbound calls.
 
 ## Mobile auth
 

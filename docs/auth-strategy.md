@@ -1,4 +1,4 @@
-# Auth strategy — web and mobile
+# Auth strategy - web and mobile
 
 StoreFuse Bridge supports phased authentication paths while keeping **one REST contract** (`/storefuse/v1`).
 
@@ -20,15 +20,15 @@ StoreFuse Bridge supports phased authentication paths while keeping **one REST c
 
 1. User creates an **Application Password** in wp-admin (Users → Profile).
 2. Prefer **`Authorization: Basic`** with standard base64 `username:application_password`.
-3. **`Authorization: Bearer`** with the same base64 payload is supported for compatibility only — this is **not** OAuth2 or an opaque access token.
+3. **`Authorization: Bearer`** with the same base64 payload is supported for compatibility only - this is **not** OAuth2 or an opaque access token.
 4. App Passwords authenticate **WordPress user** context; cart/checkout still need WooCommerce session + nonces unless cookies are also persisted.
 
 ## Non-goals
 
-- `GET /auth/nonce` is **not** bot protection or authentication — rate limited only.
+- `GET /auth/nonce` is **not** bot protection or authentication - rate limited only.
 - Custom Bearer tokens without Application Passwords are **not** supported (JWT spec-only below).
 
-## Phase 3 — Optional JWT (future)
+## Phase 3 - Optional JWT (future)
 
 Document-only until demand; do not duplicate auth truth in client repos.
 

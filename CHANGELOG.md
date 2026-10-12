@@ -44,7 +44,7 @@ All notable changes to StoreFuse Bridge follow [Semantic Versioning](https://sem
 
 ### Changed
 
-- Plugin version **1.0.0** — production gate release after merged readiness audit.
+- Plugin version **1.0.0** - production gate release after merged readiness audit.
 
 ## [0.2.0] - 2026-03-20
 

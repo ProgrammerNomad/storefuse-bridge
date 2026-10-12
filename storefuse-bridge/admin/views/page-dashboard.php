@@ -169,7 +169,7 @@ $readiness = [
             </a>
             <a href="<?php echo esc_url( str_replace( 'README.md', 'staging-smoke.md', $docs_url ) ); ?>" class="sfb-link-card" target="_blank" rel="noopener">
                 <strong><?php esc_html_e( 'Staging smoke checklist', 'storefuse-bridge' ); ?></strong>
-                <span><?php esc_html_e( 'CORS, idempotency, cart session — run before production', 'storefuse-bridge' ); ?></span>
+                <span><?php esc_html_e( 'CORS, idempotency, cart session - run before production', 'storefuse-bridge' ); ?></span>
             </a>
         </div>
     </div>

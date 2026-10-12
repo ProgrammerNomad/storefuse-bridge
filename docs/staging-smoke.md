@@ -42,4 +42,4 @@ Record results in your release ticket; link [acceptance-gates.md](acceptance-gat
 
 ## Local XAMPP
 
-If `{site}` is `http://localhost/...`, CORS and cookie `Secure` flags differ from production—use staging that matches production HTTPS and domain.
+If `{site}` is `http://localhost/...`, CORS and cookie `Secure` flags differ from production-use staging that matches production HTTPS and domain.

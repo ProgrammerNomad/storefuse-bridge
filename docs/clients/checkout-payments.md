@@ -4,10 +4,10 @@ Headless checkout uses **`POST /storefuse/v1/checkout`** with WooCommerce sessio
 
 ## Client responsibilities
 
-1. **Handle pending orders** — Treat `status` / payment state in the checkout response; show “payment processing” UI when WC leaves the order unpaid.
-2. **Thank-you / recovery** — Poll or deep-link to `GET /orders/{key}` (order key from checkout response) for confirmation after redirect gateways.
-3. **Do not double-submit** — Send a stable **`Idempotency-Key`** header on `POST /checkout` so network retries do not create duplicate orders.
-4. **Webhooks** — Storefront revalidation webhooks are **outbound from WordPress** (see Storefront settings), not payment gateway webhooks ingested by Bridge.
+1. **Handle pending orders** - Treat `status` / payment state in the checkout response; show “payment processing” UI when WC leaves the order unpaid.
+2. **Thank-you / recovery** - Poll or deep-link to `GET /orders/{key}` (order key from checkout response) for confirmation after redirect gateways.
+3. **Do not double-submit** - Send a stable **`Idempotency-Key`** header on `POST /checkout` so network retries do not create duplicate orders.
+4. **Webhooks** - Storefront revalidation webhooks are **outbound from WordPress** (see Storefront settings), not payment gateway webhooks ingested by Bridge.
 
 ## Gateway-specific
 
