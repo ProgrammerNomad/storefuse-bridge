@@ -35,7 +35,8 @@ class StoreFuse_Bridge_Module_Reviews extends StoreFuse_Bridge_Module {
                 'args'                => [
                     'product_id' => [ 'required' => true,  'type' => 'integer', 'minimum' => 1 ],
                     'rating'     => [ 'required' => true,  'type' => 'integer', 'minimum' => 1, 'maximum' => 5 ],
-                    'content'    => [ 'required' => true,  'type' => 'string' ],
+                    'content'    => [ 'required' => false, 'type' => 'string', 'default' => '' ],
+                    'review'     => [ 'required' => false, 'type' => 'string', 'default' => '' ],
                     'title'      => [ 'required' => false, 'type' => 'string', 'default' => '' ],
                 ],
             ],
@@ -79,7 +80,7 @@ class StoreFuse_Bridge_Module_Reviews extends StoreFuse_Bridge_Module {
         $data          = array_map( [ $this, 'format_review' ], $reviews );
         $rating_stats  = $product_id ? $this->rating_stats( $product_id ) : null;
 
-        $response = $this->success(
+        $payload = StoreFuse_Bridge_Rest_Schema::mirror_list_items(
             [
                 'reviews'      => $data,
                 'rating_stats' => $rating_stats,
@@ -90,8 +91,10 @@ class StoreFuse_Bridge_Module_Reviews extends StoreFuse_Bridge_Module {
                     'total_pages' => (int) ceil( $total / $per_page ),
                 ],
             ],
-            'storefuse.reviews.v1'
+            'reviews'
         );
+
+        $response = $this->success( $payload, 'storefuse.reviews.v1' );
 
         return StoreFuse_Bridge_Response::with_public_cache( $response, 300 );
     }
@@ -115,7 +118,13 @@ class StoreFuse_Bridge_Module_Reviews extends StoreFuse_Bridge_Module {
 
         $user    = wp_get_current_user();
         $rating  = (int) $request->get_param( 'rating' );
-        $content = wp_kses_post( $request->get_param( 'content' ) );
+        $content = wp_kses_post( (string) ( $request->get_param( 'content' ) ?? '' ) );
+        if ( $content === '' ) {
+            $content = wp_kses_post( (string) ( $request->get_param( 'review' ) ?? '' ) );
+        }
+        if ( $content === '' ) {
+            return StoreFuse_Bridge_Errors::missing_parameter( 'content' );
+        }
         $title   = sanitize_text_field( $request->get_param( 'title' ) ?? '' );
 
         // Prevent duplicate reviews from the same user

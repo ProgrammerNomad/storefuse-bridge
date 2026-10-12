@@ -55,6 +55,7 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
                 'payment_method'            => [ 'required' => true,  'type' => 'string',  'sanitize_callback' => 'sanitize_text_field' ],
                 'shipping_method'           => [ 'required' => false, 'type' => 'array',   'default' => [] ],
                 'order_notes'               => [ 'required' => false, 'type' => 'string',  'default' => '', 'sanitize_callback' => 'sanitize_textarea_field' ],
+                'order_comments'            => [ 'required' => false, 'type' => 'string',  'default' => '', 'sanitize_callback' => 'sanitize_textarea_field' ],
             ],
         ] );
 
@@ -128,11 +129,12 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
             ];
         }
 
+        $payload = [
+            'methods' => apply_filters( 'storefuse_bridge_payment_methods', $methods ),
+        ];
+
         return StoreFuse_Bridge_Response::with_no_store(
-            $this->success(
-                apply_filters( 'storefuse_bridge_payment_methods', $methods ),
-                'storefuse.checkout.v1'
-            )
+            $this->success( $payload, 'storefuse.checkout.v1' )
         );
     }
 
@@ -256,7 +258,10 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         $ship_to_different = (bool) $request->get_param( 'ship_to_different_address' );
         $payment_method_id = sanitize_text_field( $request->get_param( 'payment_method' ) );
         $shipping_methods  = (array) $request->get_param( 'shipping_method' );
-        $order_notes       = (string) ( $request->get_param( 'order_notes' ) ?? '' );
+        $order_notes = (string) ( $request->get_param( 'order_notes' ) ?? '' );
+        if ( $order_notes === '' ) {
+            $order_notes = (string) ( $request->get_param( 'order_comments' ) ?? '' );
+        }
 
         $scope       = StoreFuse_Bridge_Checkout_Idempotency::scope();
         $fingerprint = StoreFuse_Bridge_Checkout_Idempotency::fingerprint(

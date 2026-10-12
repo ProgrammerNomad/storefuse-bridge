@@ -30,8 +30,13 @@ class StoreFuse_Bridge_Module_Downloads extends StoreFuse_Bridge_Module {
         $raw       = wc_get_customer_available_downloads( get_current_user_id() );
         $downloads = array_map( [ $this, 'format_download' ], $raw );
 
+        $payload = StoreFuse_Bridge_Rest_Schema::mirror_list_items(
+            [ 'downloads' => $downloads ],
+            'downloads'
+        );
+
         return StoreFuse_Bridge_Response::with_no_store(
-            $this->success( [ 'downloads' => $downloads ], 'storefuse.downloads.v1' )
+            $this->success( $payload, 'storefuse.downloads.v1' )
         );
     }
 

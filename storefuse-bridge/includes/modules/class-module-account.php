@@ -45,9 +45,63 @@ class StoreFuse_Bridge_Module_Account extends StoreFuse_Bridge_Module {
                 'new_password'     => [ 'required' => true, 'type' => 'string' ],
             ],
         ] );
+
+        register_rest_route( $this->namespace, '/account/device-token', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [ $this, 'register_device_token' ],
+            'permission_callback' => [ 'StoreFuse_Bridge_Permissions', 'require_login_and_nonce' ],
+            'args'                => [
+                'token'    => [
+                    'required'          => true,
+                    'type'              => 'string',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+                'platform' => [
+                    'required'          => true,
+                    'type'              => 'string',
+                    'enum'              => [ 'android', 'ios' ],
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+            ],
+        ] );
     }
 
     // ── Handlers ─────────────────────────────────────────────────────────────
+
+    public function register_device_token( WP_REST_Request $request ): WP_REST_Response {
+        if ( ! is_user_logged_in() ) {
+            return StoreFuse_Bridge_Errors::not_authenticated();
+        }
+
+        $nonce_error = StoreFuse_Bridge_Auth::check_wp_rest_nonce( $request );
+        if ( $nonce_error ) {
+            return $nonce_error;
+        }
+
+        $user_id  = get_current_user_id();
+        $token    = sanitize_text_field( (string) $request->get_param( 'token' ) );
+        $platform = sanitize_text_field( (string) $request->get_param( 'platform' ) );
+
+        if ( $token === '' ) {
+            return StoreFuse_Bridge_Errors::missing_parameter( 'token' );
+        }
+
+        $meta_key = 'storefuse_device_tokens';
+        $existing = get_user_meta( $user_id, $meta_key, true );
+        $tokens   = is_array( $existing ) ? $existing : [];
+
+        $tokens[ md5( $token ) ] = [
+            'token'      => $token,
+            'platform'   => $platform,
+            'updated_at' => gmdate( 'c' ),
+        ];
+
+        update_user_meta( $user_id, $meta_key, $tokens );
+
+        return StoreFuse_Bridge_Response::with_no_store(
+            $this->success( [ 'registered' => true ], 'storefuse.account.v1' )
+        );
+    }
 
     public function get_account( WP_REST_Request $request ): WP_REST_Response {
         if ( ! is_user_logged_in() ) {

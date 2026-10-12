@@ -62,31 +62,23 @@ class StoreFuse_Bridge_Module_Cart extends StoreFuse_Bridge_Module {
             'methods'             => WP_REST_Server::EDITABLE,
             'callback'            => [ $this, 'update_item' ],
             'permission_callback' => [ 'StoreFuse_Bridge_Auth', 'cart_permission' ],
-            'args'                => [
-                'cart_item_key' => [
-                    'required'          => true,
-                    'type'              => 'string',
-                    'sanitize_callback' => 'sanitize_text_field',
-                ],
-                'quantity'      => [
-                    'required' => true,
-                    'type'     => 'integer',
-                    'minimum'  => 0,
-                ],
-            ],
+            'args'                => array_merge(
+                StoreFuse_Bridge_Rest_Schema::cart_item_key_args(),
+                [
+                    'quantity' => [
+                        'required' => true,
+                        'type'     => 'integer',
+                        'minimum'  => 0,
+                    ],
+                ]
+            ),
         ] );
 
         register_rest_route( $this->namespace, '/cart/remove', [
             'methods'             => WP_REST_Server::DELETABLE,
             'callback'            => [ $this, 'remove_item' ],
             'permission_callback' => [ 'StoreFuse_Bridge_Auth', 'cart_permission' ],
-            'args'                => [
-                'cart_item_key' => [
-                    'required'          => true,
-                    'type'              => 'string',
-                    'sanitize_callback' => 'sanitize_text_field',
-                ],
-            ],
+            'args'                => StoreFuse_Bridge_Rest_Schema::cart_item_key_args(),
         ] );
 
         // POST and DELETE share the same /cart/coupon path
@@ -221,8 +213,11 @@ class StoreFuse_Bridge_Module_Cart extends StoreFuse_Bridge_Module {
 
         StoreFuse_Bridge_Auth::ensure_cart();
 
-        $cart_item_key = $request->get_param( 'cart_item_key' );
-        $quantity      = (int) $request->get_param( 'quantity' );
+        $cart_item_key = StoreFuse_Bridge_Rest_Schema::cart_item_key_from_request( $request );
+        if ( $cart_item_key === '' ) {
+            return StoreFuse_Bridge_Errors::missing_parameter( 'cart_item_key' );
+        }
+        $quantity = (int) $request->get_param( 'quantity' );
 
         $cart_line = WC()->cart->get_cart()[ $cart_item_key ] ?? null;
         if ( ! is_array( $cart_line ) ) {
@@ -268,7 +263,10 @@ class StoreFuse_Bridge_Module_Cart extends StoreFuse_Bridge_Module {
 
         StoreFuse_Bridge_Auth::ensure_cart();
 
-        $cart_item_key = $request->get_param( 'cart_item_key' );
+        $cart_item_key = StoreFuse_Bridge_Rest_Schema::cart_item_key_from_request( $request );
+        if ( $cart_item_key === '' ) {
+            return StoreFuse_Bridge_Errors::missing_parameter( 'cart_item_key' );
+        }
 
         if ( ! isset( WC()->cart->get_cart()[ $cart_item_key ] ) ) {
             return StoreFuse_Bridge_Errors::cart_item_not_found();

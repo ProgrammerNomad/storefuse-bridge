@@ -103,7 +103,7 @@ class StoreFuse_Bridge_Module_Orders extends StoreFuse_Bridge_Module {
         $orders    = $paginated->orders ?? [];
         $total     = (int) ( $paginated->total ?? 0 );
 
-        $response = $this->success(
+        $payload = StoreFuse_Bridge_Rest_Schema::mirror_list_items(
             [
                 'orders' => array_map(
                     [ 'StoreFuse_Bridge_Format', 'order_summary' ],
@@ -116,8 +116,10 @@ class StoreFuse_Bridge_Module_Orders extends StoreFuse_Bridge_Module {
                     'total_pages' => (int) ceil( $total / $per_page ),
                 ],
             ],
-            'storefuse.orders.v1'
+            'orders'
         );
+
+        $response = $this->success( $payload, 'storefuse.orders.v1' );
 
         return StoreFuse_Bridge_Response::with_no_store( $response );
     }

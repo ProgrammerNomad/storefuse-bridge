@@ -62,7 +62,7 @@ class StoreFuse_Bridge_Module_Posts extends StoreFuse_Bridge_Module {
 
         $posts = array_map( [ $this, 'format_summary' ], $query->posts );
 
-        $response = $this->success(
+        $payload = StoreFuse_Bridge_Rest_Schema::mirror_list_items(
             [
                 'posts' => $posts,
                 'meta'  => [
@@ -72,8 +72,10 @@ class StoreFuse_Bridge_Module_Posts extends StoreFuse_Bridge_Module {
                     'total_pages' => (int) $query->max_num_pages,
                 ],
             ],
-            'storefuse.posts.v1'
+            'posts'
         );
+
+        $response = $this->success( $payload, 'storefuse.posts.v1' );
 
         return StoreFuse_Bridge_Response::with_public_cache( $response, 300 );
     }

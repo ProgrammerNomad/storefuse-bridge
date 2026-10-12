@@ -59,6 +59,19 @@ Validate on a dev site using the checklist in [verified-routes.md](../verified-r
 - Redirect mode: `POST /checkout/redirect-url` → open returned URL in `WebView` or external browser.
 - Headless mode: `POST /checkout` with billing/shipping/payment payloads per [api-reference.md](../api-reference.md).
 
+### Request/response aliases (mobile-friendly)
+
+| Area | Bridge canonical | Also accepted / mirrored |
+|------|------------------|---------------------------|
+| Cart update/remove | `cart_item_key` | `key` |
+| Review POST | `content` | `review` |
+| Checkout POST notes | `order_notes` | `order_comments` |
+| Paginated lists | `orders`, `posts`, `reviews`, `downloads` | mirrored `items` |
+| Payment methods | `data.methods[]` | (legacy bare array at `data` - prefer `methods`) |
+| Redirect checkout | `redirect_url` | - |
+| Shipping methods | `data.packages[].methods` | flatten client-side |
+| Push tokens | `POST /account/device-token` | `token`, `platform` (`android` \| `ios`) |
+
 Payment SDK integration is **out of Bridge scope** - Bridge returns order result JSON; native gateways may need WebView fallback per gateway.
 
 ---

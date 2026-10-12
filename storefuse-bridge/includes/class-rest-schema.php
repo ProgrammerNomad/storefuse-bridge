@@ -48,4 +48,48 @@ class StoreFuse_Bridge_Rest_Schema {
             ],
         ];
     }
+
+    /**
+     * Cart line key from `cart_item_key` or legacy client alias `key`.
+     */
+    public static function cart_item_key_from_request( WP_REST_Request $request ): string {
+        $key = $request->get_param( 'cart_item_key' );
+        if ( is_string( $key ) && $key !== '' ) {
+            return sanitize_text_field( $key );
+        }
+        $key = $request->get_param( 'key' );
+        return is_string( $key ) ? sanitize_text_field( $key ) : '';
+    }
+
+    /**
+     * REST args for cart update/remove (accept both parameter names).
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public static function cart_item_key_args(): array {
+        return [
+            'cart_item_key' => [
+                'required'          => false,
+                'type'              => 'string',
+                'sanitize_callback' => 'sanitize_text_field',
+            ],
+            'key'           => [
+                'required'          => false,
+                'type'              => 'string',
+                'sanitize_callback' => 'sanitize_text_field',
+            ],
+        ];
+    }
+
+    /**
+     * Duplicate resource list under `items` for mobile clients.
+     *
+     * @param array<string, mixed> $payload
+     */
+    public static function mirror_list_items( array $payload, string $resource_key ): array {
+        if ( isset( $payload[ $resource_key ] ) && is_array( $payload[ $resource_key ] ) ) {
+            $payload['items'] = $payload[ $resource_key ];
+        }
+        return $payload;
+    }
 }

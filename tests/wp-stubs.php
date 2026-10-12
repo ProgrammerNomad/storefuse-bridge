@@ -169,6 +169,9 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
         /** @var array<string, string> */
         private array $headers = [];
 
+        /** @var array<string, mixed> */
+        private array $params = [];
+
         public function __construct(
             private string $method,
             private string $route
@@ -181,6 +184,15 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 
         public function get_header( string $name ): string {
             return $this->headers[ strtolower( $name ) ] ?? '';
+        }
+
+        public function set_param( string $key, $value ): void {
+            $this->params[ $key ] = $value;
+        }
+
+        /** @return mixed */
+        public function get_param( string $key ) {
+            return $this->params[ $key ] ?? null;
         }
     }
 }
