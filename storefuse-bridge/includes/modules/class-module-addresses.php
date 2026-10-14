@@ -146,9 +146,12 @@ class StoreFuse_Bridge_Module_Addresses extends StoreFuse_Bridge_Module {
     }
 
     private function format_billing( WC_Customer $customer ): array {
+        $user_id = $customer->get_id();
+        $user    = $user_id ? get_user_by( 'id', $user_id ) : null;
+
         return [
-            'first_name' => $customer->get_billing_first_name(),
-            'last_name'  => $customer->get_billing_last_name(),
+            'first_name' => $customer->get_billing_first_name() ?: ( $user ? $user->first_name : '' ),
+            'last_name'  => $customer->get_billing_last_name() ?: ( $user ? $user->last_name : '' ),
             'company'    => $customer->get_billing_company(),
             'address_1'  => $customer->get_billing_address_1(),
             'address_2'  => $customer->get_billing_address_2(),
@@ -156,15 +159,18 @@ class StoreFuse_Bridge_Module_Addresses extends StoreFuse_Bridge_Module {
             'state'      => $customer->get_billing_state(),
             'postcode'   => $customer->get_billing_postcode(),
             'country'    => $customer->get_billing_country(),
-            'email'      => $customer->get_billing_email(),
+            'email'      => $customer->get_billing_email() ?: ( $user ? $user->user_email : '' ),
             'phone'      => $customer->get_billing_phone(),
         ];
     }
 
     private function format_shipping( WC_Customer $customer ): array {
+        $user_id = $customer->get_id();
+        $user    = $user_id ? get_user_by( 'id', $user_id ) : null;
+
         return [
-            'first_name' => $customer->get_shipping_first_name(),
-            'last_name'  => $customer->get_shipping_last_name(),
+            'first_name' => $customer->get_shipping_first_name() ?: ( $user ? $user->first_name : '' ),
+            'last_name'  => $customer->get_shipping_last_name() ?: ( $user ? $user->last_name : '' ),
             'company'    => $customer->get_shipping_company(),
             'address_1'  => $customer->get_shipping_address_1(),
             'address_2'  => $customer->get_shipping_address_2(),

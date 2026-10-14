@@ -396,6 +396,25 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
     private function format_user( WP_User $user ): array {
         $customer = new WC_Customer( $user->ID );
 
+        $billing = StoreFuse_Bridge_Format::address( $customer->get_billing(), 'billing' );
+        if ( empty( $billing['first_name'] ) && ! empty( $user->first_name ) ) {
+            $billing['first_name'] = $user->first_name;
+        }
+        if ( empty( $billing['last_name'] ) && ! empty( $user->last_name ) ) {
+            $billing['last_name'] = $user->last_name;
+        }
+        if ( empty( $billing['email'] ) && ! empty( $user->user_email ) ) {
+            $billing['email'] = $user->user_email;
+        }
+
+        $shipping = StoreFuse_Bridge_Format::address( $customer->get_shipping(), 'shipping' );
+        if ( empty( $shipping['first_name'] ) && ! empty( $user->first_name ) ) {
+            $shipping['first_name'] = $user->first_name;
+        }
+        if ( empty( $shipping['last_name'] ) && ! empty( $user->last_name ) ) {
+            $shipping['last_name'] = $user->last_name;
+        }
+
         return apply_filters(
             'storefuse_bridge_user_data',
             [
@@ -405,8 +424,8 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
                 'last_name'    => $user->last_name,
                 'display_name' => $user->display_name,
                 'avatar_url'   => get_avatar_url( $user->ID, [ 'size' => 96 ] ),
-                'billing'      => StoreFuse_Bridge_Format::address( $customer->get_billing(), 'billing' ),
-                'shipping'     => StoreFuse_Bridge_Format::address( $customer->get_shipping(), 'shipping' ),
+                'billing'      => $billing,
+                'shipping'     => $shipping,
                 'nonce'        => wp_create_nonce( 'wp_rest' ),
                 'cart_nonce'   => wp_create_nonce( 'wc_store_api' ),
             ],
