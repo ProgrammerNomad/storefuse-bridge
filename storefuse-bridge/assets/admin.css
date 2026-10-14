@@ -181,3 +181,162 @@
 .sfb-setup-steps { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
 .sfb-phone-preview { max-width:360px; border:2px solid #ccd0d4; border-radius:20px; padding:24px; margin:16px 0; background:#fff; }
 .sfb-collapsible > h2:focus-visible { outline:2px solid #2271b1; outline-offset:3px; }
+
+/* Client selection and direct-link context. */
+.sfb-client-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+    margin: 16px 0 4px;
+    padding: 0;
+    border: 0;
+}
+
+.sfb-client-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-height: 64px;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.sfb-client-card:has(input:checked) {
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+}
+
+.sfb-client-card > span,
+.sfb-client-card > span > span {
+    display: block;
+}
+
+.sfb-client-card > span > span {
+    margin-top: 4px;
+    color: #50575e;
+    font-size: 12px;
+}
+
+.sfb-client-card input:focus-visible,
+.sfb-admin button:focus-visible,
+.sfb-admin a:focus-visible,
+.sfb-home-hero summary:focus-visible,
+.sfb-phone-preview summary:focus-visible {
+    outline: 2px solid #2271b1;
+    outline-offset: 2px;
+}
+
+.sfb-client-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #e0f2fe;
+    color: #075985;
+    font-weight: 600;
+}
+
+.sfb-context-notice {
+    max-width: 1100px;
+}
+
+/* Details provide native keyboard behavior for expandable page sections. */
+.sfb-admin details.sfb-card > summary {
+    cursor: pointer;
+    color: #1d2327;
+}
+
+.sfb-admin details.sfb-card > summary h2 {
+    display: inline-block;
+    margin: 0;
+}
+
+.sfb-admin details.sfb-card[open] > summary {
+    margin-bottom: 14px;
+}
+
+.sfb-admin details.sfb-card > summary::marker {
+    color: #2271b1;
+}
+
+.sfb-phone-preview {
+    max-width: 420px;
+}
+
+.sfb-table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.sfb-status-table th,
+.sfb-status-table td {
+    padding: 8px 10px;
+    vertical-align: top;
+}
+
+.sfb-badge--attention {
+    background: #fef3c7;
+    color: #854d0e;
+}
+
+.sfb-badge--neutral {
+    background: #f3f4f6;
+    color: #4b5563;
+}
+
+.sfb-readiness-summary {
+    font-weight: 600;
+}
+
+.sfb-cache-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.sfb-inline-result {
+    min-height: 1.4em;
+    margin: 8px 0 0;
+}
+
+.sfb-module-group .form-table th {
+    width: 220px;
+}
+
+.sfb-module-warning {
+    color: #8a4b08;
+}
+
+.sfb-module-routes ul {
+    margin: 8px 0 0 1.2em;
+}
+
+.sfb-site-identity {
+    max-width: 900px;
+}
+
+.sfb-site-identity th {
+    width: 180px;
+}
+
+/* Subtle dividers separate logical clusters without adding menu controls. */
+#toplevel_page_storefuse-bridge .wp-submenu li:has(> a[href*="page=storefuse-bridge-homepage"]),
+#toplevel_page_storefuse-bridge .wp-submenu li:has(> a[href*="page=storefuse-bridge-branding"]),
+#toplevel_page_storefuse-bridge .wp-submenu li:has(> a[href*="page=storefuse-bridge-checkout"]),
+#toplevel_page_storefuse-bridge .wp-submenu li:has(> a[href*="page=storefuse-bridge-api"]) {
+    margin-top: 5px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(240, 246, 252, .18);
+}
+
+@media (max-width: 782px) {
+    .sfb-dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sfb-module-group .form-table th {
+        width: auto;
+    }
+}

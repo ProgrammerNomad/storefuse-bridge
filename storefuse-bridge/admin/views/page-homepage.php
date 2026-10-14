@@ -17,6 +17,7 @@ if ( is_wp_error( $product_cats ) ) {
     $product_cats = [];
 }
 $api_home = esc_url( get_site_url() . '/wp-json/storefuse/v1/homepage' );
+$client   = $s['primary_client'] ?? 'other';
 ?>
 <div class="wrap sfb-admin">
     <h1><?php esc_html_e( 'StoreFuse - Homepage', 'storefuse-bridge' ); ?></h1>
@@ -25,26 +26,32 @@ $api_home = esc_url( get_site_url() . '/wp-json/storefuse/v1/homepage' );
     <p class="description">
         <?php
         printf(
-            wp_kses_post( __( 'Announcement bar is configured under <a href="%s">General</a> only (single source). After saving, <a href="%s" target="_blank" rel="noopener">view GET /homepage</a>.', 'storefuse-bridge' ) ),
-            esc_url( admin_url( 'admin.php?page=storefuse-bridge-general' ) ),
+            wp_kses_post( __( 'Announcement bar is configured under <a href="%s">Branding</a> only (single source). After saving, <a href="%s" target="_blank" rel="noopener">view GET /homepage</a>.', 'storefuse-bridge' ) ),
+            esc_url( admin_url( 'admin.php?page=storefuse-bridge-branding' ) ),
             $api_home
         );
         ?>
     </p>
 
-    <details class="sfb-card">
-        <summary>Preview saved app content</summary>
-        <p>This preview uses saved settings. Save your changes, then refresh the preview.</p>
-        <button type="button" class="button" id="sfb-preview-load">Refresh preview</button>
-        <div id="sfb-app-preview" aria-live="polite" class="sfb-phone-preview"></div>
-    </details>
+    <?php if ( 'flutter' === $client ) : ?>
+        <details class="sfb-card sfb-phone-preview">
+            <summary><?php esc_html_e( 'Preview saved app content', 'storefuse-bridge' ); ?></summary>
+            <p><?php esc_html_e( 'This preview uses saved settings. Save your changes, then refresh the preview.', 'storefuse-bridge' ); ?></p>
+            <button type="button" class="button" id="sfb-preview-load"><?php esc_html_e( 'Refresh preview', 'storefuse-bridge' ); ?></button>
+            <div id="sfb-app-preview" aria-live="polite"></div>
+        </details>
+    <?php endif; ?>
 
     <form method="post" action="options.php">
         <?php settings_fields( 'storefuse_bridge_settings_group' ); ?>
 
-        <div class="sfb-card">
-            <h2><?php esc_html_e( 'Hero section', 'storefuse-bridge' ); ?></h2>
-            <p class="description"><?php esc_html_e( 'API: GET /homepage → hero', 'storefuse-bridge' ); ?></p>
+        <details class="sfb-card sfb-home-hero" <?php echo 'flutter' !== $client ? 'open' : ''; ?>>
+            <summary><h2><?php esc_html_e( 'Hero section', 'storefuse-bridge' ); ?></h2></summary>
+            <?php if ( 'flutter' === $client ) : ?>
+                <p class="notice notice-info inline sfb-context-notice"><?php esc_html_e( 'The Flutter app uses native promotional widgets and App Layout settings. These web-style hero settings stay available if you also serve a browser storefront.', 'storefuse-bridge' ); ?></p>
+            <?php else : ?>
+                <p class="description"><?php esc_html_e( 'Configure the hero content returned by GET /homepage.', 'storefuse-bridge' ); ?></p>
+            <?php endif; ?>
             <table class="form-table">
                 <tr>
                     <th><label for="sfb_hero_badge"><?php esc_html_e( 'Badge text', 'storefuse-bridge' ); ?></label></th>
@@ -63,21 +70,25 @@ $api_home = esc_url( get_site_url() . '/wp-json/storefuse/v1/homepage' );
                     <td><textarea id="sfb_hero_sub" name="storefuse_bridge_settings[hero_subheadline]" class="large-text" rows="2"><?php echo esc_textarea( $s['hero_subheadline'] ?? '' ); ?></textarea></td>
                 </tr>
                 <tr>
-                    <th><?php esc_html_e( 'Primary CTA', 'storefuse-bridge' ); ?></th>
+                    <th scope="row"><?php esc_html_e( 'Primary CTA', 'storefuse-bridge' ); ?></th>
                     <td>
-                        <input type="text" name="storefuse_bridge_settings[hero_cta_primary_label]" value="<?php echo esc_attr( $s['hero_cta_primary_label'] ?? 'Shop Now' ); ?>" class="regular-text" placeholder="Label" /><br>
-                        <input type="text" name="storefuse_bridge_settings[hero_cta_primary_href]" value="<?php echo esc_attr( $s['hero_cta_primary_href'] ?? '/shop' ); ?>" class="regular-text" placeholder="/shop" />
+                        <label for="sfb_hero_cta_primary_label"><?php esc_html_e( 'Button label', 'storefuse-bridge' ); ?></label>
+                        <input type="text" id="sfb_hero_cta_primary_label" name="storefuse_bridge_settings[hero_cta_primary_label]" value="<?php echo esc_attr( $s['hero_cta_primary_label'] ?? 'Shop Now' ); ?>" class="regular-text" placeholder="Shop Now" /><br>
+                        <label for="sfb_hero_cta_primary_href"><?php esc_html_e( 'Button link', 'storefuse-bridge' ); ?></label>
+                        <input type="text" id="sfb_hero_cta_primary_href" name="storefuse_bridge_settings[hero_cta_primary_href]" value="<?php echo esc_attr( $s['hero_cta_primary_href'] ?? '/shop' ); ?>" class="regular-text" placeholder="/shop" />
                     </td>
                 </tr>
                 <tr>
-                    <th><?php esc_html_e( 'Secondary CTA', 'storefuse-bridge' ); ?></th>
+                    <th scope="row"><?php esc_html_e( 'Secondary CTA', 'storefuse-bridge' ); ?></th>
                     <td>
-                        <input type="text" name="storefuse_bridge_settings[hero_cta_secondary_label]" value="<?php echo esc_attr( $s['hero_cta_secondary_label'] ?? '' ); ?>" class="regular-text" /><br>
-                        <input type="text" name="storefuse_bridge_settings[hero_cta_secondary_href]" value="<?php echo esc_attr( $s['hero_cta_secondary_href'] ?? '' ); ?>" class="regular-text" />
+                        <label for="sfb_hero_cta_secondary_label"><?php esc_html_e( 'Button label', 'storefuse-bridge' ); ?></label>
+                        <input type="text" id="sfb_hero_cta_secondary_label" name="storefuse_bridge_settings[hero_cta_secondary_label]" value="<?php echo esc_attr( $s['hero_cta_secondary_label'] ?? '' ); ?>" class="regular-text" /><br>
+                        <label for="sfb_hero_cta_secondary_href"><?php esc_html_e( 'Button link', 'storefuse-bridge' ); ?></label>
+                        <input type="text" id="sfb_hero_cta_secondary_href" name="storefuse_bridge_settings[hero_cta_secondary_href]" value="<?php echo esc_attr( $s['hero_cta_secondary_href'] ?? '' ); ?>" class="regular-text" />
                     </td>
                 </tr>
                 <tr>
-                    <th><?php esc_html_e( 'Hero image', 'storefuse-bridge' ); ?></th>
+                    <th scope="row"><?php esc_html_e( 'Hero image', 'storefuse-bridge' ); ?></th>
                     <td>
                         <?php
                         $hero_id  = (int) ( $s['hero_image_id'] ?? 0 );
@@ -86,7 +97,7 @@ $api_home = esc_url( get_site_url() . '/wp-json/storefuse/v1/homepage' );
                         <img id="sfb-hero-preview" src="<?php echo esc_url( $hero_url ?: '' ); ?>" style="max-width:240px;<?php echo $hero_url ? '' : 'display:none;'; ?>margin-bottom:8px;" alt="" />
                         <input type="hidden" id="sfb-hero-image-id" name="storefuse_bridge_settings[hero_image_id]" value="<?php echo esc_attr( $hero_id ?: '' ); ?>" />
                         <button type="button" id="sfb-hero-upload" class="button"><?php esc_html_e( 'Select image', 'storefuse-bridge' ); ?></button>
-                        <button type="button" id="sfb-hero-remove" class="button button-link-delete" style="<?php echo $hero_id ? '' : 'display:none;'; ?>"><?php esc_html_e( 'Remove', 'storefuse-bridge' ); ?></button>
+                        <button type="button" id="sfb-hero-remove" class="button button-link-delete" aria-label="<?php esc_attr_e( 'Remove hero image', 'storefuse-bridge' ); ?>" style="<?php echo $hero_id ? '' : 'display:none;'; ?>"><?php esc_html_e( 'Remove', 'storefuse-bridge' ); ?></button>
                     </td>
                 </tr>
                 <tr>
@@ -98,7 +109,7 @@ $api_home = esc_url( get_site_url() . '/wp-json/storefuse/v1/homepage' );
                     <td><input type="text" id="sfb_hero_shipping" name="storefuse_bridge_settings[hero_shipping_text]" value="<?php echo esc_attr( $s['hero_shipping_text'] ?? '' ); ?>" class="regular-text" /></td>
                 </tr>
             </table>
-        </div>
+        </details>
 
         <div class="sfb-card">
             <h2><?php esc_html_e( 'Featured categories', 'storefuse-bridge' ); ?></h2>
@@ -111,7 +122,7 @@ $api_home = esc_url( get_site_url() . '/wp-json/storefuse/v1/homepage' );
                 foreach ( $featured as $i => $row ) :
                 ?>
                 <div class="sfb-featured-cat-row" data-index="<?php echo (int) $i; ?>">
-                    <select class="sfb-cat-select" title="<?php esc_attr_e( 'Category', 'storefuse-bridge' ); ?>">
+                    <select class="sfb-cat-select" aria-label="<?php echo esc_attr( sprintf( __( 'Featured category %d', 'storefuse-bridge' ), (int) $i + 1 ) ); ?>">
                         <option value=""><?php esc_html_e( '- Select category -', 'storefuse-bridge' ); ?></option>
                         <?php foreach ( $product_cats as $term ) :
                             if ( $term->slug === 'uncategorized' ) {
@@ -122,10 +133,10 @@ $api_home = esc_url( get_site_url() . '/wp-json/storefuse/v1/homepage' );
                         <option value="<?php echo esc_attr( (string) $term->term_id ); ?>" <?php selected( $sel ); ?>><?php echo esc_html( $term->name ); ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <input type="text" class="sfb-cat-label regular-text" placeholder="<?php esc_attr_e( 'Label override', 'storefuse-bridge' ); ?>" value="<?php echo esc_attr( $row['label'] ?? '' ); ?>" />
-                    <input type="text" class="sfb-cat-icon small-text" placeholder="<?php esc_attr_e( 'Icon', 'storefuse-bridge' ); ?>" value="<?php echo esc_attr( $row['icon'] ?? '' ); ?>" />
-                    <input type="text" class="sfb-cat-color sfb-color-picker" placeholder="#hex" value="<?php echo esc_attr( $row['color'] ?? '' ); ?>" />
-                    <button type="button" class="button sfb-remove-featured-cat">✕</button>
+                    <input type="text" class="sfb-cat-label regular-text" placeholder="<?php esc_attr_e( 'Label override', 'storefuse-bridge' ); ?>" value="<?php echo esc_attr( $row['label'] ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Featured category %d label override', 'storefuse-bridge' ), (int) $i + 1 ) ); ?>" />
+                    <input type="text" class="sfb-cat-icon small-text" placeholder="<?php esc_attr_e( 'Icon', 'storefuse-bridge' ); ?>" value="<?php echo esc_attr( $row['icon'] ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Featured category %d icon', 'storefuse-bridge' ), (int) $i + 1 ) ); ?>" />
+                    <input type="text" class="sfb-cat-color sfb-color-picker" placeholder="#hex" value="<?php echo esc_attr( $row['color'] ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Featured category %d color', 'storefuse-bridge' ), (int) $i + 1 ) ); ?>" />
+                    <button type="button" class="button sfb-remove-featured-cat" aria-label="<?php echo esc_attr( sprintf( __( 'Remove featured category %d', 'storefuse-bridge' ), (int) $i + 1 ) ); ?>">✕</button>
                 </div>
                 <?php endforeach; ?>
             </div>
@@ -133,7 +144,7 @@ $api_home = esc_url( get_site_url() . '/wp-json/storefuse/v1/homepage' );
             <input type="hidden" id="sfb-featured-categories-json" name="storefuse_bridge_settings[featured_categories]" value="<?php echo esc_attr( wp_json_encode( $featured ) ); ?>" />
             <template id="sfb-featured-cat-template">
                 <div class="sfb-featured-cat-row">
-                    <select class="sfb-cat-select"><option value=""><?php esc_html_e( '- Select category -', 'storefuse-bridge' ); ?></option>
+                    <select class="sfb-cat-select" aria-label="<?php esc_attr_e( 'Featured category', 'storefuse-bridge' ); ?>"><option value=""><?php esc_html_e( '- Select category -', 'storefuse-bridge' ); ?></option>
                     <?php foreach ( $product_cats as $term ) :
                         if ( $term->slug === 'uncategorized' ) {
                             continue;
@@ -142,10 +153,10 @@ $api_home = esc_url( get_site_url() . '/wp-json/storefuse/v1/homepage' );
                     <option value="<?php echo esc_attr( (string) $term->term_id ); ?>"><?php echo esc_html( $term->name ); ?></option>
                     <?php endforeach; ?>
                     </select>
-                    <input type="text" class="sfb-cat-label regular-text" placeholder="<?php esc_attr_e( 'Label override', 'storefuse-bridge' ); ?>" />
-                    <input type="text" class="sfb-cat-icon small-text" placeholder="<?php esc_attr_e( 'Icon', 'storefuse-bridge' ); ?>" />
-                    <input type="text" class="sfb-cat-color sfb-color-picker" placeholder="#hex" />
-                    <button type="button" class="button sfb-remove-featured-cat">✕</button>
+                    <input type="text" class="sfb-cat-label regular-text" placeholder="<?php esc_attr_e( 'Label override', 'storefuse-bridge' ); ?>" aria-label="<?php esc_attr_e( 'Category label override', 'storefuse-bridge' ); ?>" />
+                    <input type="text" class="sfb-cat-icon small-text" placeholder="<?php esc_attr_e( 'Icon', 'storefuse-bridge' ); ?>" aria-label="<?php esc_attr_e( 'Category icon', 'storefuse-bridge' ); ?>" />
+                    <input type="text" class="sfb-cat-color sfb-color-picker" placeholder="#hex" aria-label="<?php esc_attr_e( 'Category color', 'storefuse-bridge' ); ?>" />
+                    <button type="button" class="button sfb-remove-featured-cat" aria-label="<?php esc_attr_e( 'Remove featured category', 'storefuse-bridge' ); ?>">✕</button>
                 </div>
             </template>
         </div>
@@ -174,9 +185,9 @@ $api_home = esc_url( get_site_url() . '/wp-json/storefuse/v1/homepage' );
                     <td><input type="number" id="sfb_bs_count" name="storefuse_bridge_settings[homepage_best_sellers_count]" value="<?php echo esc_attr( $s['homepage_best_sellers_count'] ?? 8 ); ?>" min="1" max="24" class="small-text" /></td>
                 </tr>
                 <tr>
-                    <th><label for="sfb_bs_ids"><?php esc_html_e( 'Select products', 'storefuse-bridge' ); ?></label></th>
+                    <th><label for="sfb-product-selection"><?php esc_html_e( 'Select products', 'storefuse-bridge' ); ?></label></th>
                     <td>
-                        <select id="sfb-product-selection" class="wc-product-search" multiple="multiple" style="width:100%" data-placeholder="Search products" data-action="woocommerce_json_search_products">
+                        <select id="sfb-product-selection" class="wc-product-search" aria-label="<?php esc_attr_e( 'Best selling products to include', 'storefuse-bridge' ); ?>" multiple="multiple" style="width:100%" data-placeholder="Search products" data-action="woocommerce_json_search_products">
                         <?php foreach ( array_filter( array_map( 'absint', explode( ',', $s['homepage_best_sellers_ids'] ?? '' ) ) ) as $product_id ) :
                             $selected_product = wc_get_product( $product_id );
                             if ( ! $selected_product ) { continue; } ?>
@@ -206,8 +217,11 @@ $api_home = esc_url( get_site_url() . '/wp-json/storefuse/v1/homepage' );
             <h3><?php esc_html_e( 'Promo banner', 'storefuse-bridge' ); ?></h3>
             <table class="form-table">
                 <tr>
-                    <th><?php esc_html_e( 'Enabled', 'storefuse-bridge' ); ?></th>
-                    <td><input type="checkbox" name="storefuse_bridge_settings[homepage_promo_banner_enabled]" value="1" <?php checked( ! empty( $s['homepage_promo_banner_enabled'] ) ); ?> /></td>
+                    <th scope="row"><?php esc_html_e( 'Enabled', 'storefuse-bridge' ); ?></th>
+                    <td>
+                        <input type="hidden" name="storefuse_bridge_settings[homepage_promo_banner_enabled]" value="0" />
+                        <label for="sfb_promo_enabled"><input type="checkbox" id="sfb_promo_enabled" name="storefuse_bridge_settings[homepage_promo_banner_enabled]" value="1" <?php checked( ! empty( $s['homepage_promo_banner_enabled'] ) ); ?> /> <?php esc_html_e( 'Show promotional banner', 'storefuse-bridge' ); ?></label>
+                    </td>
                 </tr>
                 <tr>
                     <th><label for="sfb_promo_headline"><?php esc_html_e( 'Headline', 'storefuse-bridge' ); ?></label></th>
@@ -218,10 +232,12 @@ $api_home = esc_url( get_site_url() . '/wp-json/storefuse/v1/homepage' );
                     <td><textarea id="sfb_promo_body" name="storefuse_bridge_settings[homepage_promo_banner_body]" class="large-text" rows="3"><?php echo esc_textarea( $s['homepage_promo_banner_body'] ?? '' ); ?></textarea></td>
                 </tr>
                 <tr>
-                    <th><?php esc_html_e( 'CTA', 'storefuse-bridge' ); ?></th>
+                    <th scope="row"><?php esc_html_e( 'CTA', 'storefuse-bridge' ); ?></th>
                     <td>
-                        <input type="text" name="storefuse_bridge_settings[homepage_promo_banner_cta_label]" value="<?php echo esc_attr( $s['homepage_promo_banner_cta_label'] ?? '' ); ?>" class="regular-text" placeholder="Label" /><br>
-                        <input type="text" name="storefuse_bridge_settings[homepage_promo_banner_cta_href]" value="<?php echo esc_attr( $s['homepage_promo_banner_cta_href'] ?? '' ); ?>" class="regular-text" placeholder="/shop" />
+                        <label for="sfb_promo_cta_label"><?php esc_html_e( 'Button label', 'storefuse-bridge' ); ?></label>
+                        <input type="text" id="sfb_promo_cta_label" name="storefuse_bridge_settings[homepage_promo_banner_cta_label]" value="<?php echo esc_attr( $s['homepage_promo_banner_cta_label'] ?? '' ); ?>" class="regular-text" placeholder="Label" /><br>
+                        <label for="sfb_promo_cta_href"><?php esc_html_e( 'Button link', 'storefuse-bridge' ); ?></label>
+                        <input type="text" id="sfb_promo_cta_href" name="storefuse_bridge_settings[homepage_promo_banner_cta_href]" value="<?php echo esc_attr( $s['homepage_promo_banner_cta_href'] ?? '' ); ?>" class="regular-text" placeholder="/shop" />
                     </td>
                 </tr>
                 <tr>

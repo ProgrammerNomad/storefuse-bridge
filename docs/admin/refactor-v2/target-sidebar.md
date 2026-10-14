@@ -96,7 +96,7 @@ App Layout remains available by direct URL but is not shown in these sidebar mod
 | `storefuse-bridge-advanced` | `storefuse-bridge-modules` | Existing module toggles remain available |
 | `storefuse-bridge-mobile-app` | `storefuse-bridge-app-layout` | Direct destination remains usable even when hidden from the sidebar |
 
-Use a temporary `302` response via `wp_safe_redirect()` to the new admin URL, then stop rendering the old page. These are wp-admin navigation aliases, not public URLs; a permanent redirect has no SEO benefit and can be cached by browsers during ongoing admin work. Keep the legacy routes registered so bookmarks and plugin links do not fail.
+Run the legacy-slug redirect on `admin_menu` before WordPress checks access to the requested plugin page. Use a temporary `302` response via `wp_safe_redirect()` to the new admin URL, then stop rendering the old page. These are wp-admin navigation aliases, not public URLs; a permanent redirect has no SEO benefit and can be cached by browsers during ongoing admin work. Keep the legacy slugs mapped so bookmarks and plugin links do not fail.
 
 ## Homepage presentation by client
 

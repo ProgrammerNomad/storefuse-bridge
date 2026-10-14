@@ -10,6 +10,10 @@ if ( ! defined( 'STOREFUSE_BRIDGE_VERSION' ) ) {
     define( 'STOREFUSE_BRIDGE_VERSION', '1.0.2' );
 }
 
+if ( ! defined( 'STOREFUSE_BRIDGE_BASENAME' ) ) {
+    define( 'STOREFUSE_BRIDGE_BASENAME', 'storefuse-bridge/storefuse-bridge.php' );
+}
+
 if ( ! defined( 'STOREFUSE_BRIDGE_MIN_WC' ) ) {
     define( 'STOREFUSE_BRIDGE_MIN_WC', '7.0' );
 }
@@ -35,6 +39,10 @@ $GLOBALS['_sfb_options'] = $GLOBALS['_sfb_options'] ?? [];
 /** @var array<string, callable> */
 $GLOBALS['_sfb_filters'] = $GLOBALS['_sfb_filters'] ?? [];
 
+/** @var array<string, array<array{mixed, int}>> */
+$GLOBALS['_sfb_actions'] = $GLOBALS['_sfb_actions'] ?? [];
+$GLOBALS['_sfb_menus']  = $GLOBALS['_sfb_menus'] ?? [];
+
 if ( ! function_exists( 'apply_filters' ) ) {
     /**
      * @param mixed $value
@@ -55,6 +63,28 @@ if ( ! function_exists( 'add_filter' ) ) {
     function add_filter( string $hook, callable $callback, int $priority = 10, int $accepted_args = 1 ): void {
         unset( $priority, $accepted_args );
         $GLOBALS['_sfb_filters'][ $hook ][] = $callback;
+    }
+}
+
+if ( ! function_exists( 'add_action' ) ) {
+    function add_action( string $hook, $callback, int $priority = 10, int $accepted_args = 1 ): bool {
+        unset( $accepted_args );
+        $GLOBALS['_sfb_actions'][ $hook ][] = [ $callback, $priority ];
+        return true;
+    }
+}
+
+if ( ! function_exists( 'add_menu_page' ) ) {
+    function add_menu_page( string $page_title, string $menu_title, string $capability, string $menu_slug, $callback = '', string $icon_url = '', $position = null ): string {
+        $GLOBALS['_sfb_menus']['top'][] = [ $page_title, $menu_title, $capability, $menu_slug, $callback, $icon_url, $position ];
+        return 'toplevel_page_' . $menu_slug;
+    }
+}
+
+if ( ! function_exists( 'add_submenu_page' ) ) {
+    function add_submenu_page( string $parent_slug, string $page_title, string $menu_title, string $capability, string $menu_slug, $callback = '', $position = null ): string {
+        $GLOBALS['_sfb_menus']['sub'][] = [ $parent_slug, $page_title, $menu_title, $capability, $menu_slug, $callback, $position ];
+        return 'storefuse_page_' . $menu_slug;
     }
 }
 
@@ -285,9 +315,46 @@ if ( ! function_exists( 'sanitize_text_field' ) ) {
     }
 }
 
+if ( ! function_exists( 'sanitize_textarea_field' ) ) {
+    function sanitize_textarea_field( string $value ): string {
+        return trim( $value );
+    }
+}
+
+if ( ! function_exists( 'sanitize_hex_color' ) ) {
+    function sanitize_hex_color( string $color ): ?string {
+        return preg_match( '/^#(?:[a-f0-9]{3}){1,2}$/i', $color ) ? $color : null;
+    }
+}
+
+if ( ! function_exists( 'add_settings_error' ) ) {
+    function add_settings_error( string $setting, string $code, string $message, string $type = 'error' ): void {
+        unset( $setting, $code, $message, $type );
+    }
+}
+
 if ( ! function_exists( 'sanitize_key' ) ) {
     function sanitize_key( string $key ): string {
         return strtolower( preg_replace( '/[^a-z0-9_\-]/', '', $key ) ?? '' );
+    }
+}
+
+if ( ! function_exists( '__' ) ) {
+    function __( string $text, string $domain = 'default' ): string {
+        unset( $domain );
+        return $text;
+    }
+}
+
+if ( ! function_exists( 'absint' ) ) {
+    function absint( $value ): int {
+        return abs( (int) $value );
+    }
+}
+
+if ( ! function_exists( 'sanitize_title' ) ) {
+    function sanitize_title( string $title ): string {
+        return strtolower( trim( preg_replace( '/[^a-z0-9]+/i', '-', $title ) ?? '', '-' ) );
     }
 }
 

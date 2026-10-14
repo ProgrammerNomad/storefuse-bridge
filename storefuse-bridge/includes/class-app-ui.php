@@ -183,6 +183,10 @@ class StoreFuse_Bridge_App_Ui {
             ) {
                 $patch[ $bool_key ] = ! empty( $input[ $bool_key ] );
             }
+
+            // The multi-checkbox group is omitted by PHP when every section is unchecked.
+            // The form flag tells us that an empty array is an intentional save.
+            $patch['app_ui_home_hide_sections'] = self::parse_home_hide_sections( $input['app_ui_home_hide_sections'] ?? [] );
         }
 
         if ( array_key_exists( 'app_ui_catalog_layout', $input ) ) {

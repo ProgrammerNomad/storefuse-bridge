@@ -14,6 +14,10 @@ if ( function_exists( 'WC' ) && WC()->payment_gateways() ) {
     <h1><?php esc_html_e( 'StoreFuse - Checkout', 'storefuse-bridge' ); ?></h1>
     <?php settings_errors( 'storefuse_bridge_settings' ); ?>
 
+    <?php if ( empty( $s['module_checkout_enabled'] ) ) : ?>
+        <div class="notice notice-warning inline"><p><?php esc_html_e( 'The Checkout module is disabled, so Bridge checkout routes are not registered.', 'storefuse-bridge' ); ?> <a href="<?php echo esc_url( admin_url( 'admin.php?page=storefuse-bridge-modules' ) ); ?>"><?php esc_html_e( 'Review Modules', 'storefuse-bridge' ); ?></a></p></div>
+    <?php endif; ?>
+
     <form method="post" action="options.php">
         <?php settings_fields( 'storefuse_bridge_settings_group' ); ?>
 

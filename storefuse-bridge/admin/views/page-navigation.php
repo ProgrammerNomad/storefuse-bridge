@@ -14,6 +14,7 @@ $footer_tree    = StoreFuse_Bridge_Admin::nest_nav_items( $footer_items );
 ?>
 <div class="wrap sfb-admin">
     <h1><?php esc_html_e( 'StoreFuse - Navigation', 'storefuse-bridge' ); ?></h1>
+    <?php StoreFuse_Bridge_Admin::render_client_context_notice( 'storefuse-bridge-navigation' ); ?>
 
     <div class="sfb-card">
         <h2><?php esc_html_e( 'Navigation menus', 'storefuse-bridge' ); ?></h2>
@@ -60,6 +61,6 @@ $footer_tree    = StoreFuse_Bridge_Admin::nest_nav_items( $footer_items );
         <button type="button" id="sfb-flush-nav-cache" class="button button-secondary sfb-flush-group" data-group="navigation">
             <?php esc_html_e( 'Flush navigation cache', 'storefuse-bridge' ); ?>
         </button>
-        <span id="sfb-flush-nav-result" style="margin-left:10px;"></span>
+        <span id="sfb-flush-nav-result" class="sfb-inline-result" role="status" aria-live="polite"></span>
     </div>
 </div>

@@ -34,6 +34,6 @@ Keep these existing fields and values. Do not expose the secret in public API re
 
 ## Form and security
 
-The configuration form uses `settings_fields( 'storefuse_bridge_settings_group' )` and saves only `storefront_revalidate_path` and `revalidation_secret` to the existing settings option. The storefront host is edited on Setup. Test and clear-log buttons are separate AJAX actions, use the existing admin nonce, and require the existing settings capability.
+The configuration form uses `settings_fields( 'storefuse_bridge_settings_group' )` and saves only `storefront_revalidate_path` and `revalidation_secret` to the existing settings option. The secret input is blank on every render: submitting it blank preserves the existing secret, entering a new value replaces it, and the explicit `_sfb_clear_revalidation_secret=1` helper clears it. The helper is not stored in the settings option. The storefront host is edited on Setup. Test and clear-log buttons are separate AJAX actions, use the existing admin nonce, and require the existing settings capability.
 
 See [AJAX & actions](../../ajax-and-actions.md) and [the current Storefront & Clients screen](../../current/pages/storefront-clients.md) for the shipped behavior.

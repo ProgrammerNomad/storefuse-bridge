@@ -6,7 +6,7 @@
     <div class="sfb-card">
         <h2><?php esc_html_e( 'Companion plugins & hooks', 'storefuse-bridge' ); ?></h2>
         <p>
-            <?php esc_html_e( 'Extend Bridge with WordPress filters and actions, or ship a companion plugin that registers additional REST modules through the storefuse_bridge_modules filter.', 'storefuse-bridge' ); ?>
+            <?php esc_html_e( 'Integrate with Bridge through the documented WordPress actions and filters. The storefuse_bridge_modules filter lets code-based integrations modify the runtime module instances.', 'storefuse-bridge' ); ?>
         </p>
         <p>
             <a class="button button-primary" href="<?php echo esc_url( StoreFuse_Bridge_Admin::documentation_url() ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'View documentation on GitHub', 'storefuse-bridge' ); ?></a>
@@ -45,7 +45,7 @@
     </div>
 
     <div class="sfb-card">
-        <h2><?php esc_html_e( 'Registered companion modules', 'storefuse-bridge' ); ?></h2>
-        <p class="description"><?php esc_html_e( 'Companion modules are registered in code using storefuse_bridge_modules. Each module supplies its own permissions and API contract.', 'storefuse-bridge' ); ?></p>
+        <h2><?php esc_html_e( 'Module extension point', 'storefuse-bridge' ); ?></h2>
+        <p class="description"><?php esc_html_e( 'Bridge applies the storefuse_bridge_modules filter to its runtime module instances. This screen does not scan installed plugins or provide a companion-module registry or settings UI.', 'storefuse-bridge' ); ?></p>
     </div>
 </div>

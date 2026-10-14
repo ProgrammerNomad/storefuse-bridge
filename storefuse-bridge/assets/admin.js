@@ -80,6 +80,21 @@
         }
     });
 
+    $(document).on('click', '#sfb-check-connection', function () {
+        var $btn = $(this);
+        var $result = $('#sfb-connection-health');
+        $btn.prop('disabled', true);
+        $result.text('Checking the StoreFuse status endpoint…');
+        $.getJSON(sfbAdmin.apiBase + '/status').done(function (response) {
+            var data = response.data || {};
+            $result.css('color', '#008a20').text('Connected. StoreFuse status: ' + (data.status || 'available') + '.');
+        }).fail(function (xhr) {
+            $result.css('color', '#b32d2e').text('Connection check failed (HTTP ' + (xhr.status || 'error') + ').');
+        }).always(function () {
+            $btn.prop('disabled', false);
+        });
+    });
+
     function postAjax(action, data, done) {
         data = data || {};
         data.action = action;
@@ -196,6 +211,13 @@
         var badges = [];
         $('#sfb-trust-badges .sfb-trust-badge-row').each(function () {
             var $row = $(this);
+            var index = $row.index() + 1;
+            var title = $row.find('input[name*="[title]"]').val() || index;
+            $row.find('.sfb-badge-enabled-cb').attr('aria-label', 'Enable trust badge ' + title);
+            $row.find('input[name*="[icon]"]').attr('aria-label', 'Trust badge ' + index + ' icon');
+            $row.find('input[name*="[title]"]').attr('aria-label', 'Trust badge ' + index + ' title');
+            $row.find('input[name*="[description]"]').attr('aria-label', 'Trust badge ' + index + ' description');
+            $row.find('.sfb-remove-badge').attr('aria-label', 'Remove trust badge ' + index);
             badges.push({
                 enabled: $row.find('.sfb-badge-enabled-cb').is(':checked'),
                 icon: $row.find('input[name*="[icon]"]').val(),
@@ -211,24 +233,37 @@
     $(document).on('click', '#sfb-add-badge', function () {
         var idx = $('#sfb-trust-badges .sfb-trust-badge-row').length;
         var html = '<div class="sfb-trust-badge-row" data-index="' + idx + '">' +
-            '<label class="sfb-badge-enabled"><input type="checkbox" class="sfb-badge-enabled-cb" checked /></label>' +
-            '<input type="text" name="sfb_badges[' + idx + '][icon]" class="small-text" placeholder="Icon" />' +
-            '<input type="text" name="sfb_badges[' + idx + '][title]" class="regular-text" placeholder="Title" />' +
-            '<input type="text" name="sfb_badges[' + idx + '][description]" class="regular-text" placeholder="Description" />' +
-            '<button type="button" class="button sfb-remove-badge">✕</button></div>';
+            '<label class="sfb-badge-enabled"><input type="checkbox" class="sfb-badge-enabled-cb" aria-label="Enable trust badge ' + (idx + 1) + '" checked /></label>' +
+            '<input type="text" name="sfb_badges[' + idx + '][icon]" class="small-text" aria-label="Trust badge ' + (idx + 1) + ' icon" placeholder="Icon" />' +
+            '<input type="text" name="sfb_badges[' + idx + '][title]" class="regular-text" aria-label="Trust badge ' + (idx + 1) + ' title" placeholder="Title" />' +
+            '<input type="text" name="sfb_badges[' + idx + '][description]" class="regular-text" aria-label="Trust badge ' + (idx + 1) + ' description" placeholder="Description" />' +
+            '<button type="button" class="button sfb-remove-badge" aria-label="Remove trust badge ' + (idx + 1) + '">✕</button></div>';
         $('#sfb-trust-badges').append(html);
         serializeBadges();
     });
 
     $(document).on('click', '.sfb-remove-badge', function () {
-        $(this).closest('.sfb-trust-badge-row').remove();
+        var $row = $(this).closest('.sfb-trust-badge-row');
+        var $focus = $row.next().find(':input').first();
+        if (!$focus.length) {
+            $focus = $('#sfb-add-badge');
+        }
+        $row.remove();
         serializeBadges();
+        $focus.trigger('focus');
     });
 
     function serializeFeaturedCategories() {
         var items = [];
         $('#sfb-featured-categories .sfb-featured-cat-row').each(function () {
             var $row = $(this);
+            var index = $row.index() + 1;
+            $row.attr('data-index', index - 1);
+            $row.find('.sfb-cat-select').attr('aria-label', 'Featured category ' + index);
+            $row.find('.sfb-cat-label').attr('aria-label', 'Featured category ' + index + ' label override');
+            $row.find('.sfb-cat-icon').attr('aria-label', 'Featured category ' + index + ' icon');
+            $row.find('.sfb-cat-color').attr('aria-label', 'Featured category ' + index + ' color');
+            $row.find('.sfb-remove-featured-cat').attr('aria-label', 'Remove featured category ' + index);
             var catId = $row.find('.sfb-cat-select').val();
             if (!catId) {
                 return;
@@ -262,8 +297,14 @@
     });
 
     $(document).on('click', '.sfb-remove-featured-cat', function () {
-        $(this).closest('.sfb-featured-cat-row').remove();
+        var $row = $(this).closest('.sfb-featured-cat-row');
+        var $focus = $row.next().find(':input').first();
+        if (!$focus.length) {
+            $focus = $('#sfb-add-featured-cat');
+        }
+        $row.remove();
         serializeFeaturedCategories();
+        $focus.trigger('focus');
     });
 
     $('form').on('submit', function () {

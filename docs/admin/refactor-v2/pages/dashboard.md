@@ -47,7 +47,7 @@ Each row has a requirement label (`Required`, `Optional`, `Recommended`, or `Inf
 | Payment method | Required only when customers can place online orders through checkout | Needs attention | `admin.php?page=wc-settings&tab=checkout` |
 | Shipping zones | Required only when the store sells products that need shipping; otherwise Not applicable | Needs attention | `admin.php?page=wc-settings&tab=shipping` |
 | Privacy policy | Recommended; show as informational if no policy is configured. Legal obligations vary by store and jurisdiction | Informational or Needs attention, never a universal technical blocker | `options-privacy.php` |
-| Storefront URL | Required only for configured features that need a decoupled storefront URL (such as storefront links in account flows); otherwise Optional | Needs attention only when such a feature is in use | `admin.php?page=storefuse-bridge-setup` |
+| Storefront URL | Required only when the outgoing Webhooks module is enabled; otherwise Optional | Needs attention only when webhooks are enabled | `admin.php?page=storefuse-bridge-setup` |
 | HTTPS | Recommended for production storefronts and APIs | Recommended | - |
 | Header/Footer menu assignment | Required only for a browser storefront using the Bridge header/footer menu locations; Not applicable to Flutter-only app navigation | Needs attention only for a browser storefront that uses those locations | `nav-menus.php` |
 | CORS origins | Required only for a cross-origin browser frontend with CORS enabled; same-origin browser frontends and native Flutter API requests do not need browser CORS | Needs attention only for a cross-origin browser frontend | `admin.php?page=storefuse-bridge-api` |

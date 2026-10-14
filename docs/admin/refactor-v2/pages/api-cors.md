@@ -32,7 +32,7 @@ All clients (`flutter`, `nextjs`, `other`).
   - Warning banner if CORS is enabled but no origins are specified:
     *"CORS is enabled but no origins are listed. Browsers will block cross-origin requests."*
 - **Client Relevance Notice**:
-  > **Note for Flutter developers:** Native mobile applications do not enforce browser CORS restrictions. CORS is only required for browser-based frontends like Next.js or Nuxt.js.
+  > **Note for app developers:** Native mobile applications do not enforce browser CORS restrictions. A browser-based app, including Flutter Web, may need CORS when it calls the API from a different origin. Same-origin browser clients do not need CORS.
 
 ### 2. API Diagnostics & Base URLs
 - API Base URL: `get_site_url() . '/wp-json/storefuse/v1'`

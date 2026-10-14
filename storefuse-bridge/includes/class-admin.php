@@ -15,6 +15,7 @@ class StoreFuse_Bridge_Admin {
 
     public function __construct() {
         add_action( 'admin_menu',            [ $this, 'register_menus' ] );
+        add_action( 'admin_menu',            [ $this, 'redirect_legacy_pages' ], 0 );
         add_action( 'admin_init',            [ $this, 'register_settings' ] );
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
         add_action( 'admin_notices',         [ $this, 'dismiss_setup_notice_on_dashboard' ] );
@@ -74,31 +75,27 @@ class StoreFuse_Bridge_Admin {
             56
         );
 
-        add_submenu_page(
-            'storefuse-bridge',
-            __( 'StoreFuse Bridge - Dashboard', 'storefuse-bridge' ),
-            __( 'Dashboard', 'storefuse-bridge' ),
-            $cap,
-            'storefuse-bridge',
-            [ $this, 'page_dashboard' ]
-        );
-
-        $pages = [
-            'storefuse-bridge-general'     => [ __( 'General', 'storefuse-bridge' ), 'page_general' ],
-            'storefuse-bridge-homepage'    => [ __( 'Homepage', 'storefuse-bridge' ), 'page_homepage' ],
-            'storefuse-bridge-mobile-app'  => [ __( 'Mobile app', 'storefuse-bridge' ), 'page_mobile_app' ],
-            'storefuse-bridge-navigation'  => [ __( 'Navigation', 'storefuse-bridge' ), 'page_navigation' ],
-            'storefuse-bridge-social'      => [ __( 'Social & Trust', 'storefuse-bridge' ), 'page_social' ],
-            'storefuse-bridge-checkout'    => [ __( 'Checkout', 'storefuse-bridge' ), 'page_checkout' ],
-            'storefuse-bridge-storefront'  => [ __( 'Storefront & Clients', 'storefuse-bridge' ), 'page_storefront' ],
-            'storefuse-bridge-api'         => [ __( 'API & Tools', 'storefuse-bridge' ), 'page_api' ],
-            'storefuse-bridge-advanced'    => [ __( 'Advanced', 'storefuse-bridge' ), 'page_advanced' ],
-            'storefuse-bridge-extensions'  => [ __( 'Extensions', 'storefuse-bridge' ), 'page_extensions' ],
+        $client = (string) StoreFuse_Bridge_Settings::get( 'primary_client', 'other' );
+        $pages  = [
+            'storefuse-bridge'               => [ __( 'Dashboard', 'storefuse-bridge' ), 'page_dashboard', [ 'flutter', 'nextjs', 'other' ] ],
+            'storefuse-bridge-setup'          => [ __( 'Setup', 'storefuse-bridge' ), 'page_setup', [ 'flutter', 'nextjs', 'other' ] ],
+            'storefuse-bridge-homepage'       => [ __( 'Homepage', 'storefuse-bridge' ), 'page_homepage', [ 'flutter', 'nextjs', 'other' ] ],
+            'storefuse-bridge-social'         => [ __( 'Social & Trust', 'storefuse-bridge' ), 'page_social', [ 'flutter', 'nextjs', 'other' ] ],
+            'storefuse-bridge-branding'       => [ __( 'Branding', 'storefuse-bridge' ), 'page_branding', [ 'flutter', 'nextjs', 'other' ] ],
+            'storefuse-bridge-app-layout'     => [ __( 'App Layout', 'storefuse-bridge' ), 'page_app_layout', [ 'flutter' ] ],
+            'storefuse-bridge-navigation'     => [ __( 'Navigation', 'storefuse-bridge' ), 'page_navigation', [ 'nextjs', 'other' ] ],
+            'storefuse-bridge-checkout'       => [ __( 'Checkout', 'storefuse-bridge' ), 'page_checkout', [ 'flutter', 'nextjs', 'other' ] ],
+            'storefuse-bridge-policies'       => [ __( 'Store Policies', 'storefuse-bridge' ), 'page_store_policies', [ 'flutter', 'nextjs', 'other' ] ],
+            'storefuse-bridge-api'            => [ __( 'API & CORS', 'storefuse-bridge' ), 'page_api', [ 'flutter', 'nextjs', 'other' ] ],
+            'storefuse-bridge-webhooks'       => [ __( 'Webhooks (ISR)', 'storefuse-bridge' ), 'page_webhooks', [ 'nextjs', 'other' ] ],
+            'storefuse-bridge-modules'        => [ __( 'Modules', 'storefuse-bridge' ), 'page_modules', [ 'flutter', 'nextjs', 'other' ] ],
+            'storefuse-bridge-extensions'     => [ __( 'Extensions', 'storefuse-bridge' ), 'page_extensions', [ 'flutter', 'nextjs', 'other' ] ],
         ];
 
-        foreach ( $pages as $slug => [ $title, $callback ] ) {
+        foreach ( $pages as $slug => [ $title, $callback, $clients ] ) {
+            $parent_slug = in_array( $client, $clients, true ) ? 'storefuse-bridge' : '';
             add_submenu_page(
-                'storefuse-bridge',
+                $parent_slug,
                 'StoreFuse - ' . $title,
                 $title,
                 $cap,
@@ -106,6 +103,70 @@ class StoreFuse_Bridge_Admin {
                 [ $this, $callback ]
             );
         }
+    }
+
+    /**
+     * Redirect bookmarks for the four menu slugs replaced by the v2 screens.
+     */
+    public function redirect_legacy_pages(): void {
+        if ( ! is_admin() || ! isset( $_GET['page'] ) || ! is_string( $_GET['page'] ) ) {
+            return;
+        }
+
+        $legacy_pages = [
+            'storefuse-bridge-general'    => 'storefuse-bridge-branding',
+            'storefuse-bridge-storefront' => 'storefuse-bridge-setup',
+            'storefuse-bridge-advanced'   => 'storefuse-bridge-modules',
+            'storefuse-bridge-mobile-app' => 'storefuse-bridge-app-layout',
+        ];
+        $page         = sanitize_key( wp_unslash( $_GET['page'] ) );
+
+        if ( ! isset( $legacy_pages[ $page ] ) ) {
+            return;
+        }
+
+        wp_safe_redirect( admin_url( 'admin.php?page=' . $legacy_pages[ $page ] ), 302, 'StoreFuse Bridge' );
+        exit;
+    }
+
+    /**
+     * Render an informational notice when a client-specific page is hidden in the sidebar.
+     * The WordPress menu capability remains the sole access check.
+     */
+    public static function render_client_context_notice( string $page_slug ): void {
+        $client = (string) StoreFuse_Bridge_Settings::get( 'primary_client', 'other' );
+        $hidden_for = [
+            'storefuse-bridge-app-layout' => [ 'nextjs', 'other' ],
+            'storefuse-bridge-navigation' => [ 'flutter' ],
+            'storefuse-bridge-webhooks'   => [ 'flutter' ],
+        ];
+
+        if ( empty( $hidden_for[ $page_slug ] ) || ! in_array( $client, $hidden_for[ $page_slug ], true ) ) {
+            return;
+        }
+
+        $client_labels = [
+            'flutter' => __( 'Flutter', 'storefuse-bridge' ),
+            'nextjs'  => __( 'Next.js', 'storefuse-bridge' ),
+            'other'   => __( 'Other', 'storefuse-bridge' ),
+        ];
+        $client_label  = $client_labels[ $client ] ?? $client_labels['other'];
+        ?>
+        <div class="notice notice-info inline sfb-context-notice">
+            <p>
+                <?php
+                printf(
+                    /* translators: %s: configured primary client */
+                    esc_html__( 'This page is hidden from your sidebar because your primary client is set to %s. You can still use and save these settings.', 'storefuse-bridge' ),
+                    esc_html( $client_label )
+                );
+                ?>
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=storefuse-bridge-setup' ) ); ?>">
+                    <?php esc_html_e( 'Change client in Setup', 'storefuse-bridge' ); ?>
+                </a>
+            </p>
+        </div>
+        <?php
     }
 
     public function register_settings(): void {
@@ -236,8 +297,10 @@ class StoreFuse_Bridge_Admin {
             $revalidate_path                       = sanitize_text_field( $input['storefront_revalidate_path'] );
             $patch['storefront_revalidate_path'] = '/' . ltrim( $revalidate_path, '/' );
         }
-        if ( array_key_exists( 'revalidation_secret', $input ) ) {
-            $patch['revalidation_secret'] = sanitize_text_field( $input['revalidation_secret'] );
+        if ( ! empty( $input['_sfb_clear_revalidation_secret'] ) ) {
+            $patch['revalidation_secret'] = '';
+        } elseif ( isset( $input['revalidation_secret'] ) && is_scalar( $input['revalidation_secret'] ) && (string) $input['revalidation_secret'] !== '' ) {
+            $patch['revalidation_secret'] = sanitize_text_field( (string) $input['revalidation_secret'] );
         }
         if ( array_key_exists( 'primary_client', $input ) ) {
             $valid_clients             = [ 'nextjs', 'flutter', 'other' ];
@@ -433,8 +496,32 @@ class StoreFuse_Bridge_Admin {
         require_once STOREFUSE_BRIDGE_PATH . 'admin/views/page-dashboard.php';
     }
 
+    public function page_setup(): void {
+        require_once STOREFUSE_BRIDGE_PATH . 'admin/views/page-setup.php';
+    }
+
+    public function page_branding(): void {
+        require_once STOREFUSE_BRIDGE_PATH . 'admin/views/page-branding.php';
+    }
+
+    public function page_store_policies(): void {
+        require_once STOREFUSE_BRIDGE_PATH . 'admin/views/page-store-policies.php';
+    }
+
+    public function page_webhooks(): void {
+        require_once STOREFUSE_BRIDGE_PATH . 'admin/views/page-webhooks-isr.php';
+    }
+
+    public function page_app_layout(): void {
+        require_once STOREFUSE_BRIDGE_PATH . 'admin/views/page-app-layout.php';
+    }
+
+    public function page_modules(): void {
+        require_once STOREFUSE_BRIDGE_PATH . 'admin/views/page-modules.php';
+    }
+
     public function page_general(): void {
-        require_once STOREFUSE_BRIDGE_PATH . 'admin/views/page-general.php';
+        $this->page_branding();
     }
 
     public function page_homepage(): void {
@@ -442,7 +529,7 @@ class StoreFuse_Bridge_Admin {
     }
 
     public function page_mobile_app(): void {
-        require_once STOREFUSE_BRIDGE_PATH . 'admin/views/page-mobile-app.php';
+        $this->page_app_layout();
     }
 
     public function page_social(): void {
@@ -458,7 +545,7 @@ class StoreFuse_Bridge_Admin {
     }
 
     public function page_storefront(): void {
-        require_once STOREFUSE_BRIDGE_PATH . 'admin/views/page-storefront.php';
+        $this->page_setup();
     }
 
     public function page_api(): void {
@@ -466,7 +553,7 @@ class StoreFuse_Bridge_Admin {
     }
 
     public function page_advanced(): void {
-        require_once STOREFUSE_BRIDGE_PATH . 'admin/views/page-advanced.php';
+        $this->page_modules();
     }
 
     public function page_extensions(): void {
@@ -535,7 +622,7 @@ class StoreFuse_Bridge_Admin {
      * @return list<string>
      */
     public static function module_disable_warn_ids(): array {
-        return [ 'settings', 'cart', 'checkout', 'account' ];
+        return [ 'settings', 'cart', 'checkout', 'orders', 'account' ];
     }
 
     /**

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-First-time store connection: primary client selection, storefront URL, password reset path, and optional health check. This proposal moves existing fields from [Storefront & Clients](../../current/pages/storefront-clients.md); it does not add settings storage.
+First-time store connection: primary client selection, storefront URL, the retained reset-path setting, and an optional health check. This proposal moves existing fields from [Storefront & Clients](../../current/pages/storefront-clients.md); it does not add settings storage.
 
 ## Menu (planned)
 
@@ -35,5 +35,6 @@ Same keys as today - no renames:
 
 - On save: show the normal WordPress settings confirmation and reflect the selected mode in the sidebar on the next render  
 - Never auto-overwrite `primary_client` on plugin upgrade  
+- Explain accurately that `storefront_url` is currently used for outgoing webhook delivery. The stored `storefront_reset_path` value has no current in-plugin consumer; the built-in reset email uses WordPress's reset URL unless a companion integration customizes it with `storefuse_bridge_password_reset_url`.
 
 See [target-sidebar.md](../target-sidebar.md).

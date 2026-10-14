@@ -61,13 +61,13 @@ $platforms = [
                     $enabled = ! array_key_exists( 'enabled', $badge ) || ! empty( $badge['enabled'] );
                 ?>
                 <div class="sfb-trust-badge-row" data-index="<?php echo (int) $i; ?>">
-                    <label class="sfb-badge-enabled" title="<?php esc_attr_e( 'Enabled', 'storefuse-bridge' ); ?>">
-                        <input type="checkbox" class="sfb-badge-enabled-cb" <?php checked( $enabled ); ?> />
+                    <label class="sfb-badge-enabled" title="<?php esc_attr_e( 'Enabled', 'storefuse-bridge' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Enable %s badge', 'storefuse-bridge' ), $badge['title'] ?? ( (int) $i + 1 ) ) ); ?>">
+                        <input type="checkbox" class="sfb-badge-enabled-cb" aria-label="<?php echo esc_attr( sprintf( __( 'Enable %s badge', 'storefuse-bridge' ), $badge['title'] ?? ( (int) $i + 1 ) ) ); ?>" <?php checked( $enabled ); ?> />
                     </label>
-                    <input type="text" name="sfb_badges[<?php echo (int) $i; ?>][icon]" value="<?php echo esc_attr( $badge['icon'] ?? '' ); ?>" class="small-text" placeholder="Icon" />
-                    <input type="text" name="sfb_badges[<?php echo (int) $i; ?>][title]" value="<?php echo esc_attr( $badge['title'] ?? '' ); ?>" class="regular-text" placeholder="Title" />
-                    <input type="text" name="sfb_badges[<?php echo (int) $i; ?>][description]" value="<?php echo esc_attr( $badge['description'] ?? '' ); ?>" class="regular-text" placeholder="Description" />
-                    <button type="button" class="button sfb-remove-badge">✕</button>
+                    <input type="text" name="sfb_badges[<?php echo (int) $i; ?>][icon]" value="<?php echo esc_attr( $badge['icon'] ?? '' ); ?>" class="small-text" placeholder="Icon" aria-label="<?php echo esc_attr( sprintf( __( 'Badge %d icon', 'storefuse-bridge' ), (int) $i + 1 ) ); ?>" />
+                    <input type="text" name="sfb_badges[<?php echo (int) $i; ?>][title]" value="<?php echo esc_attr( $badge['title'] ?? '' ); ?>" class="regular-text" placeholder="Title" aria-label="<?php echo esc_attr( sprintf( __( 'Badge %d title', 'storefuse-bridge' ), (int) $i + 1 ) ); ?>" />
+                    <input type="text" name="sfb_badges[<?php echo (int) $i; ?>][description]" value="<?php echo esc_attr( $badge['description'] ?? '' ); ?>" class="regular-text" placeholder="Description" aria-label="<?php echo esc_attr( sprintf( __( 'Badge %d description', 'storefuse-bridge' ), (int) $i + 1 ) ); ?>" />
+                    <button type="button" class="button sfb-remove-badge" aria-label="<?php echo esc_attr( sprintf( __( 'Remove badge %d', 'storefuse-bridge' ), (int) $i + 1 ) ); ?>">✕</button>
                 </div>
                 <?php endforeach; ?>
             </div>

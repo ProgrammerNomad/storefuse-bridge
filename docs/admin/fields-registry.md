@@ -63,7 +63,7 @@ Legend - **Target page (v2):** Dashboard | Setup | Homepage | Social & Trust | B
 | `app_ui_checkout_show_guest_prompt` | bool | true | Mobile app | App Layout | `app.ui.screens.checkout.show_guest_prompt` | |
 | `app_ui_cart_empty_cta_href` | path | `/shop` | Mobile app | App Layout | `app.ui.screens.cart.empty_cta_href` | |
 | `app_ui_home_section_order` | Ordered section IDs (CSV form input; normalized list) | see `HOME_SECTION_IDS` | Mobile app | App Layout | `app.ui.screens.home.section_order`; also `GET /homepage` → `layout` | Flutter home order |
-| `app_ui_home_hide_sections[]` | string[] | `[]` | Mobile app | App Layout | `app.ui.screens.home.hide_sections` | Checkbox per section ID |
+| `app_ui_home_hide_sections` | string[] (submitted as `app_ui_home_hide_sections[]`) | `[]` | Mobile app | App Layout | `app.ui.screens.home.hide_sections` | Checkbox per section ID |
 | `social_instagram` | URL | empty | Social & Trust | Social & Trust | `GET /settings` → `social_links.instagram` | |
 | `social_facebook` | URL | empty | Social & Trust | Social & Trust | | |
 | `social_twitter` | URL | empty | Social & Trust | Social & Trust | | |
@@ -74,8 +74,8 @@ Legend - **Target page (v2):** Dashboard | Setup | Homepage | Social & Trust | B
 | `checkout_mode` | enum | `redirect` | Checkout | Checkout | `GET /checkout/config`; `GET /status` → `features.headless_checkout` | |
 | `checkout_redirect_label` | string | Proceed to Checkout | Checkout | Checkout | `checkout/config.checkout_redirect_label` | |
 | `checkout_page_url` | URL | empty | Checkout | Checkout | Redirect URL override | |
-| `storefront_url` | URL | empty | Storefront & Clients | Setup | Auth emails, webhooks (not in public settings JSON) | |
-| `storefront_reset_path` | path | `/reset-password` | Storefront & Clients | Setup | Password reset deep link | |
+| `storefront_url` | URL | empty | Storefront & Clients | Setup | Outgoing webhook destination host (not in public settings JSON) | Used by the Webhooks module; not used by built-in password-reset email generation |
+| `storefront_reset_path` | path | `/reset-password` | Storefront & Clients | Setup | No current in-plugin consumer; retained setting | Built-in reset email uses WordPress's reset URL; customization uses `storefuse_bridge_password_reset_url` |
 | `primary_client` | enum | `other` | Storefront & Clients | Setup | **Admin only** (not in API) | v2 controls sidebar visibility and contextual admin guidance; it does not gate routes or settings |
 | `storefront_revalidate_path` | path | `/api/revalidate` | Storefront & Clients | Webhooks (ISR) | Outgoing webhook URL path | Next.js / other |
 | `revalidation_secret` | string | empty | Storefront & Clients | Webhooks (ISR) | HMAC secret | |
@@ -97,6 +97,19 @@ Module save requires hidden field `_sfb_save_modules=1` on POST or unchecked mod
 |------------|---------|
 | `_sfb_save_app_ui` | Ensures app UI checkboxes unset when unchecked are persisted via `App_Ui::sanitize_settings_patch` |
 | `_sfb_save_modules` | Gates module checkbox batch update |
+| `_sfb_clear_revalidation_secret` | Explicitly clears the saved ISR signing secret; a blank `revalidation_secret` field retains the existing secret |
+
+### Legacy compatibility aliases (not v2 fields)
+
+The plugin retains limited input/read compatibility for older names. The v2 screens must submit the canonical keys above and must not add the aliases as new fields or migrate stored data.
+
+| Legacy name | Canonical setting | Source behavior |
+|-------------|-------------------|-----------------|
+| `module_content_enabled` | `module_posts_enabled`, `module_reviews_enabled` | `StoreFuse_Bridge_Settings::all()` supplies the legacy value for either canonical module only when that canonical key is absent from the stored option. |
+| `password_reset_path` | `storefront_reset_path` | `StoreFuse_Bridge_Settings::all()` uses this stored legacy value only when `storefront_reset_path` is absent. |
+| `ui_catalog_layout`, `ui_catalog_columns`, `ui_show_stock_badge`, `ui_shop_title`, `ui_search_layout`, `ui_pdp_show_sku`, `ui_pdp_sticky_add_to_cart`, `ui_pdp_related_count`, `ui_cart_show_coupon`, `ui_cart_show_free_shipping_bar`, `ui_cart_empty_cta_href`, `homepage_section_order`, `homepage_section_hidden` | Corresponding `app_ui_*` settings above | `StoreFuse_Bridge_App_Ui` normalizes these legacy input names to canonical names before patch sanitization and can read them from a settings array when the canonical key is absent. They are not current form names. |
+
+Boolean controls without a batch helper must submit an explicit false value when unchecked. In v2 this applies to `announcement_bar_enabled`, `homepage_promo_banner_enabled`, and `cors_enabled`; test both checked and unchecked saves. App Layout and Modules continue using their existing batch flags.
 
 ### Not in Bridge settings (documented on General)
 

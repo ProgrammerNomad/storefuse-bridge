@@ -73,6 +73,8 @@ This is an admin UI refactor over existing settings. No database migration, back
   - [ ] Test: Unchecking checkboxes (e.g., `app_ui_product_show_sku`) successfully persists unchecked state upon save.
 - [ ] **Modules Save Flag**: Form in `page-modules.php` includes `<input type="hidden" name="storefuse_bridge_settings[_sfb_save_modules]" value="1" />`.
   - [ ] Test: Disabling a module successfully persists unchecked state upon save.
+- [ ] **Webhook secret handling**: `revalidation_secret` renders blank; blank submission preserves the stored secret, a new value replaces it, and `_sfb_clear_revalidation_secret=1` explicitly clears it. The helper flag is not persisted.
+- [ ] **Single-checkbox false values**: Branding, Homepage, and API & CORS forms submit explicit false values for unchecked `announcement_bar_enabled`, `homepage_promo_banner_enabled`, and `cors_enabled`; verify each can be turned off after being enabled.
 - [ ] **AJAX Nonce & Capability**: All admin-ajax actions verify `check_ajax_referer( 'sfb_admin_nonce', 'nonce' )` and capability.
 
 ---
@@ -131,6 +133,7 @@ This is an admin UI refactor over existing settings. No database migration, back
 
 - [ ] All 13 page specifications created in `docs/admin/refactor-v2/pages/`.
 - [ ] **Source-to-registry reconciliation completed before implementation**: Compare all current admin form controls and their submitted names against the settings registrations, default values, sanitizers, option patch behavior, and actual consumers. The registry maps each stored setting once to its source and v2 destination. Document generated key families (for example `module_{id}_enabled`), array controls (for example `app_ui_home_hide_sections[]`), and helper POST flags explicitly; helper flags are not stored settings.
+- [ ] Legacy compatibility aliases (`module_content_enabled`, `password_reset_path`, and the accepted App UI input aliases) are documented as aliases only; v2 forms submit canonical keys and do not add or migrate alias keys.
 - [ ] Every registry row is verified against live source for field name, type/default, sanitization, current page, v2 destination, and consumer. Every current settings control is classified as a registry setting or documented non-setting control; there are no unexplained source-only fields or stale registry rows.
 - [ ] The source audit records the actual callbacks, slugs, capabilities, nonces, AJAX actions, JS/CSS selectors, and API output touched by the planned pages, and resolves discrepancies in the docs before code starts.
 - [ ] Target sidebar document `target-sidebar.md` updated with technical mechanisms.
