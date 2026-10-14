@@ -321,16 +321,6 @@
     width: 180px;
 }
 
-/* Subtle dividers separate logical clusters without adding menu controls. */
-#toplevel_page_storefuse-bridge .wp-submenu li:has(> a[href*="page=storefuse-bridge-homepage"]),
-#toplevel_page_storefuse-bridge .wp-submenu li:has(> a[href*="page=storefuse-bridge-branding"]),
-#toplevel_page_storefuse-bridge .wp-submenu li:has(> a[href*="page=storefuse-bridge-checkout"]),
-#toplevel_page_storefuse-bridge .wp-submenu li:has(> a[href*="page=storefuse-bridge-api"]) {
-    margin-top: 5px;
-    padding-top: 4px;
-    border-top: 1px solid rgba(240, 246, 252, .18);
-}
-
 @media (max-width: 782px) {
     .sfb-dashboard-grid {
         grid-template-columns: 1fr;
