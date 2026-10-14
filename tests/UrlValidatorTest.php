@@ -34,8 +34,8 @@ final class UrlValidatorTest extends TestCase
     {
         add_filter(
             'storefuse_bridge_resolve_host_ips',
-            static function ( $ips, string $host ) {
-                if ( $host === 'unresolvable.example' ) {
+            static function ($ips, string $host) {
+                if ($host === 'unresolvable.example') {
                     return [];
                 }
                 return $ips;
@@ -54,8 +54,8 @@ final class UrlValidatorTest extends TestCase
     {
         add_filter(
             'storefuse_bridge_resolve_host_ips',
-            static function ( $ips, string $host ) {
-                if ( $host === 'internal.example' ) {
+            static function ($ips, string $host) {
+                if ($host === 'internal.example') {
                     return [ '10.0.0.1' ];
                 }
                 return $ips;

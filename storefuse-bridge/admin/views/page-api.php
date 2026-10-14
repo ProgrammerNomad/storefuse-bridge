@@ -15,6 +15,9 @@ $last_flush = get_option( 'storefuse_bridge_last_flush_at', [] );
             <p class="description">
                 <?php esc_html_e( 'Allow credentialed fetch() from your storefront origin. Do not use * when cookies are required - list each origin explicitly.', 'storefuse-bridge' ); ?>
             </p>
+            <p class="description">
+                <?php esc_html_e( 'When CORS is disabled, StoreFuse REST responses do not send Access-Control-Allow-Origin (WordPress core CORS is also suppressed for /storefuse/v1/*). Native mobile apps and same-origin browser tabs are unaffected; cross-origin browser clients need CORS enabled with an explicit origin list.', 'storefuse-bridge' ); ?>
+            </p>
             <?php if ( ! empty( $s['cors_enabled'] ) && trim( (string) ( $s['cors_allowed_origins'] ?? '' ) ) === '' ) : ?>
                 <div class="notice notice-warning inline"><p><?php esc_html_e( 'CORS is enabled but no origins are listed. Browsers will not receive Access-Control-Allow-Origin.', 'storefuse-bridge' ); ?></p></div>
             <?php endif; ?>

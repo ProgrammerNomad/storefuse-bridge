@@ -30,6 +30,9 @@ abstract class StoreFuse_Bridge_Module {
             return true;
         }
 
+        if ( $this->id === 'checkout' && ! StoreFuse_Bridge_Settings::get( 'module_cart_enabled', true ) ) {
+            return false;
+        }
         $key = "module_{$this->id}_enabled";
         return (bool) StoreFuse_Bridge_Settings::get( $key, true );
     }

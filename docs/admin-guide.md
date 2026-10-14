@@ -42,7 +42,7 @@ Option key: `storefuse_bridge_settings` (single serialized array).
 | `storefront_url`, `storefront_reset_path` | Storefront | Password reset filter; not in public settings JSON |
 | `storefront_revalidate_path`, `revalidation_secret` | Storefront | Outgoing webhooks only |
 | `module_*_enabled` | Advanced | `GET /status` → `modules` |
-| `cors_enabled`, `cors_allowed_origins` | API & Tools | HTTP headers on `/storefuse/v1/*` |
+| `cors_enabled`, `cors_allowed_origins` | API & Tools | HTTP headers on `/storefuse/v1/*` only when enabled and origin matches; when disabled, StoreFuse routes omit `Access-Control-Allow-Origin` and WordPress core REST CORS is suppressed for this namespace (native apps unaffected) |
 | `primary_client` | Storefront | Admin guidance only (not in API) |
 
 ## WooCommerce-native (not in Bridge settings)

@@ -4,12 +4,17 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Transient-based cache helpers.
  *
- * All transient keys are prefixed with 'sfb_' to allow bulk-flushing
- * without touching other plugins' transients.
+ * Content entries have a dedicated, versioned namespace. Security and session
+ * records are never invalidated by these helpers.
  */
 class StoreFuse_Bridge_Cache {
 
-    private const PREFIX = 'sfb_';
+    private const PREFIX = 'sfb_content_';
+
+    private static function key( string $key ): string {
+        $generation = (string) get_option( 'sfb_content_generation', '0' );
+        return self::PREFIX . $generation . '_' . md5( $key );
+    }
 
     /**
      * Get cached data. Returns null on miss.
@@ -17,7 +22,7 @@ class StoreFuse_Bridge_Cache {
      * @param string $key  Cache key (without prefix)
      */
     public static function get( string $key ): mixed {
-        $value = get_transient( self::PREFIX . $key );
+        $value = get_transient( self::key( $key ) );
         return $value === false ? null : $value;
     }
 
@@ -29,30 +34,24 @@ class StoreFuse_Bridge_Cache {
      * @param int    $expiry     Expiry in seconds (default 10 minutes)
      */
     public static function set( string $key, mixed $value, int $expiry = 600 ): void {
-        set_transient( self::PREFIX . $key, $value, $expiry );
+        set_transient( self::key( $key ), $value, $expiry );
     }
 
     /**
      * Delete a single cache entry.
      */
     public static function delete( string $key ): void {
-        delete_transient( self::PREFIX . $key );
+        delete_transient( self::key( $key ) );
     }
 
     /**
-     * Flush every StoreFuse Bridge transient.
+     * Invalidate StoreFuse content caches only.
      * Called on deactivation and via the admin flush button.
      */
     public static function flush_all(): void {
-        global $wpdb;
-        $wpdb->query(
-            $wpdb->prepare(
-                "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
-                '_transient_' . self::PREFIX . '%',
-                '_transient_timeout_' . self::PREFIX . '%'
-            )
-        );
-        delete_option( 'storefuse_bridge_cache_keys' );
+        // Generation changes invalidate Redis/Memcached too, without touching
+        // security counters, cart credentials or checkout recovery records.
+        update_option( 'sfb_content_generation', bin2hex( random_bytes( 12 ) ), false );
         self::record_flush( 'all' );
     }
 
@@ -68,13 +67,13 @@ class StoreFuse_Bridge_Cache {
                 break;
             case 'settings':
                 self::invalidate_settings();
-                delete_transient( self::PREFIX . self::settings_key() );
+                self::delete( self::settings_key() );
                 break;
             case 'navigation':
                 self::invalidate_navigation();
                 break;
             case 'homepage':
-                delete_transient( self::PREFIX . self::homepage_key() );
+                self::delete( self::homepage_key() );
                 break;
             case 'search':
                 // Search reads live product data; bust product list caches.
@@ -184,35 +183,20 @@ class StoreFuse_Bridge_Cache {
     }
 
     public static function invalidate_products(): void {
-        // We don't know exactly which list query caches are affected, so flush all product transients
-        global $wpdb;
-        $wpdb->query(
-            $wpdb->prepare(
-                "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
-                '_transient_sfb_product_%',
-                '_transient_sfb_products_%'
-            )
-        );
+        self::flush_all();
     }
 
     public static function invalidate_categories(): void {
-        global $wpdb;
-        $wpdb->query(
-            $wpdb->prepare(
-                "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
-                '_transient_sfb_cat_%',
-                '_transient_sfb_categories%'
-            )
-        );
+        self::flush_all();
     }
 
     public static function invalidate_settings(): void {
-        delete_transient( self::PREFIX . self::settings_key() );
-        delete_transient( self::PREFIX . self::homepage_key() );
+        self::delete( self::settings_key() );
+        self::delete( self::homepage_key() );
     }
 
     public static function invalidate_navigation(): void {
-        delete_transient( self::PREFIX . self::navigation_key() );
-        delete_transient( self::PREFIX . self::settings_key() ); // settings includes nav
+        self::delete( self::navigation_key() );
+        self::delete( self::settings_key() ); // settings includes nav
     }
 }

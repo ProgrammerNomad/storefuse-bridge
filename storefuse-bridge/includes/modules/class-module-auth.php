@@ -42,7 +42,7 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
                     'sanitize_callback' => 'sanitize_email',
                 ],
                 'password'   => [
-                    'required'            => true,
+                    'required'            => false,
                     'type'                => 'string',
                     'validate_callback'   => [ $this, 'validate_password_length' ],
                 ],
@@ -162,8 +162,23 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
      * profile with a fresh WP nonce and cart token.
      */
     public function register( WP_REST_Request $request ): WP_REST_Response {
+        if ( get_option( 'woocommerce_enable_myaccount_registration', 'no' ) !== 'yes' ) {
+            return StoreFuse_Bridge_Errors::forbidden();
+        }
+        $limit = StoreFuse_Bridge_Auth::throttle_by_ip( $request, 'register_ip' );
+        if ( $limit ) {
+            return $limit;
+        }
         $email      = $request->get_param( 'email' );
         $password   = $request->get_param( 'password' );
+        $password   = is_string( $password ) ? $password : '';
+        if ( get_option( 'woocommerce_registration_generate_password', 'no' ) === 'yes' ) {
+            if ( $password === '' ) {
+                $password = wp_generate_password( 24, true, true );
+            }
+        } elseif ( $password === '' ) {
+            return StoreFuse_Bridge_Errors::validation_error( 'Password is required.' );
+        }
         $first_name = $request->get_param( 'first_name' );
         $last_name  = $request->get_param( 'last_name' );
 
@@ -201,6 +216,10 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
      * and returns the user profile with nonce and cart token.
      */
     public function login( WP_REST_Request $request ): WP_REST_Response {
+        $limit = StoreFuse_Bridge_Auth::throttle_by_ip( $request, 'login_ip' );
+        if ( $limit ) {
+            return $limit;
+        }
         $email    = $request->get_param( 'email' );
         $password = $request->get_param( 'password' );
         $remember = (bool) $request->get_param( 'remember' );
@@ -294,6 +313,10 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
      * Always returns success to prevent email enumeration.
      */
     public function forgot_password( WP_REST_Request $request ): WP_REST_Response {
+        $limit = StoreFuse_Bridge_Auth::throttle_by_ip( $request, 'forgot_password_ip' );
+        if ( $limit ) {
+            return $limit;
+        }
         $email = $request->get_param( 'email' );
 
         if ( ! is_email( $email ) ) {
@@ -326,6 +349,10 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
      * The frontend obtains `login` and `key` from the reset URL query params.
      */
     public function reset_password( WP_REST_Request $request ): WP_REST_Response {
+        $limit = StoreFuse_Bridge_Auth::throttle_by_ip( $request, 'reset_password_ip' );
+        if ( $limit ) {
+            return $limit;
+        }
         $login    = $request->get_param( 'login' );
         $key      = $request->get_param( 'key' );
         $password = $request->get_param( 'password' );
@@ -396,6 +423,12 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
      */
     public function validate_password_length( $value ): bool|WP_Error {
         $password = is_string( $value ) ? $value : '';
+        if (
+            $password === ''
+            && get_option( 'woocommerce_registration_generate_password', 'no' ) === 'yes'
+        ) {
+            return true;
+        }
         $min      = (int) apply_filters( 'storefuse_bridge_password_min_length', 8 );
         if ( strlen( $password ) < $min ) {
             return new WP_Error(

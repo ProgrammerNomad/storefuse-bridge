@@ -9,7 +9,13 @@ $locations = get_nav_menu_locations();
 $last_flush = get_option( 'storefuse_bridge_last_flush_at', [] );
 $docs_url   = StoreFuse_Bridge_Admin::documentation_url();
 
+$enabled_gateways = array_filter( WC()->payment_gateways()->payment_gateways(), static fn( $gateway ) => $gateway->enabled === 'yes' );
 $readiness = [
+    [ 'label' => __( 'Published products available', 'storefuse-bridge' ), 'ok' => (int) wp_count_posts( 'product' )->publish > 0, 'link' => admin_url( 'edit.php?post_type=product' ) ],
+    [ 'label' => __( 'Payment method enabled', 'storefuse-bridge' ), 'ok' => ! empty( $enabled_gateways ), 'link' => admin_url( 'admin.php?page=wc-settings&tab=checkout' ) ],
+    [ 'label' => __( 'Delivery zones configured (for physical products)', 'storefuse-bridge' ), 'ok' => ! empty( WC_Shipping_Zones::get_zones() ), 'link' => admin_url( 'admin.php?page=wc-settings&tab=shipping' ) ],
+    [ 'label' => __( 'Privacy policy published', 'storefuse-bridge' ), 'ok' => (bool) get_privacy_policy_url(), 'link' => admin_url( 'options-privacy.php' ) ],
+
     [
         'label' => __( 'Header menu assigned (storefuse-header)', 'storefuse-bridge' ),
         'ok'    => ! empty( $locations['storefuse-header'] ),
@@ -48,6 +54,11 @@ $readiness = [
         <span class="sfb-version">v<?php echo esc_html( STOREFUSE_BRIDGE_VERSION ); ?></span>
     </h1>
 
+    <nav class="sfb-setup-steps" aria-label="Store setup">
+        <?php foreach ( [ 'storefront' => 'Connect app', 'general' => 'Store identity', 'homepage' => 'Merchandising and preview', 'checkout' => 'Checkout', 'api' => 'Diagnostics' ] as $slug => $label ) : ?>
+        <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=storefuse-bridge-' . $slug ) ); ?>"><?php echo esc_html( $label ); ?></a>
+        <?php endforeach; ?>
+    </nav>
     <div class="sfb-dashboard-grid">
 
         <div class="sfb-card sfb-card--status">

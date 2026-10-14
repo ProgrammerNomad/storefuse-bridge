@@ -8,18 +8,46 @@
         $('.sfb-color-picker').wpColorPicker();
         initCheckoutPanels();
         initHomepageAccordions();
+        var dirty = false;
+        $('.sfb-admin form').on('change input', ':input', function () { dirty = true; });
+        $('.sfb-admin form').on('submit', function () { dirty = false; });
+        $(window).on('beforeunload', function (event) {
+            if (dirty) { event.preventDefault(); event.originalEvent.returnValue = ''; }
+        });
+        $('#sfb-product-selection').on('change', function () {
+            $('#sfb_bs_ids').val(($(this).val() || []).join(',')).trigger('change');
+        });
+        $('#sfb-preview-load').on('click', function () {
+            var preview = $('#sfb-app-preview').empty().text('Loading saved content…');
+            $.getJSON(sfbAdmin.apiBase + '/homepage').done(function (response) {
+                var data = response.data || {}, hero = data.hero || {};
+                preview.empty();
+                if (data.announcement_bar && data.announcement_bar.enabled) {
+                    $('<p>').text(data.announcement_bar.text || '').appendTo(preview);
+                }
+                $('<h2>').text(hero.headline || 'Welcome to your store').appendTo(preview);
+                $('<p>').text(hero.subheadline || '').appendTo(preview);
+                $('<p>').text(hero.cta_primary_label || 'Shop products').addClass('button').appendTo(preview);
+                $('<h3>').text((data.best_sellers || {}).heading || 'Best Sellers').appendTo(preview);
+                $('<p>').text('Product selection: ' + ((data.best_sellers || {}).source || 'best-selling')).appendTo(preview);
+                $('<h3>').text((data.new_arrivals || {}).heading || 'New Arrivals').appendTo(preview);
+            }).fail(function () { preview.text('Preview could not load. Check that the settings module is enabled.'); });
+        });
     });
 
     function initHomepageAccordions() {
-        if (!$('body').hasClass('storefuse-bridge_page_storefuse-bridge-homepage')) {
+        if (!$('#sfb-app-preview').length) {
             return;
         }
-        $('.sfb-card').addClass('sfb-collapsible').each(function (i) {
+        $('.sfb-card').not('details').addClass('sfb-collapsible').each(function (i) {
             if (i > 0) {
                 $(this).addClass('sfb-collapsed');
             }
         });
+        $('.sfb-collapsible > h2').each(function () { $(this).attr({tabindex: '0', role: 'button', 'aria-expanded': $(this).closest('.sfb-card').hasClass('sfb-collapsed') ? 'false' : 'true'}); });
+        $(document).on('keydown', '.sfb-collapsible > h2', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $(this).trigger('click'); } });
         $(document).on('click', '.sfb-collapsible > h2', function () {
+            $(this).attr('aria-expanded', $(this).closest('.sfb-card').hasClass('sfb-collapsed') ? 'true' : 'false');
             $(this).closest('.sfb-card').toggleClass('sfb-collapsed');
         });
     }

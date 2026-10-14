@@ -32,6 +32,13 @@ $api_home = esc_url( get_site_url() . '/wp-json/storefuse/v1/homepage' );
         ?>
     </p>
 
+    <details class="sfb-card">
+        <summary>Preview saved app content</summary>
+        <p>This preview uses saved settings. Save your changes, then refresh the preview.</p>
+        <button type="button" class="button" id="sfb-preview-load">Refresh preview</button>
+        <div id="sfb-app-preview" aria-live="polite" class="sfb-phone-preview"></div>
+    </details>
+
     <form method="post" action="options.php">
         <?php settings_fields( 'storefuse_bridge_settings_group' ); ?>
 
@@ -156,7 +163,7 @@ $api_home = esc_url( get_site_url() . '/wp-json/storefuse/v1/homepage' );
                     <th><label for="sfb_bs_source"><?php esc_html_e( 'Source', 'storefuse-bridge' ); ?></label></th>
                     <td>
                         <select id="sfb_bs_source" name="storefuse_bridge_settings[homepage_best_sellers_source]">
-                            <?php foreach ( [ 'best-selling' => 'Best selling', 'featured' => 'Featured products', 'manual' => 'Manual product IDs' ] as $val => $lab ) : ?>
+                            <?php foreach ( [ 'best-selling' => 'Best selling', 'featured' => 'Featured products', 'manual' => 'Selected products' ] as $val => $lab ) : ?>
                             <option value="<?php echo esc_attr( $val ); ?>" <?php selected( $s['homepage_best_sellers_source'] ?? 'best-selling', $val ); ?>><?php echo esc_html( $lab ); ?></option>
                             <?php endforeach; ?>
                         </select>
@@ -167,8 +174,18 @@ $api_home = esc_url( get_site_url() . '/wp-json/storefuse/v1/homepage' );
                     <td><input type="number" id="sfb_bs_count" name="storefuse_bridge_settings[homepage_best_sellers_count]" value="<?php echo esc_attr( $s['homepage_best_sellers_count'] ?? 8 ); ?>" min="1" max="24" class="small-text" /></td>
                 </tr>
                 <tr>
-                    <th><label for="sfb_bs_ids"><?php esc_html_e( 'Manual IDs', 'storefuse-bridge' ); ?></label></th>
-                    <td><input type="text" id="sfb_bs_ids" name="storefuse_bridge_settings[homepage_best_sellers_ids]" value="<?php echo esc_attr( $s['homepage_best_sellers_ids'] ?? '' ); ?>" class="regular-text" placeholder="12,34,56" /></td>
+                    <th><label for="sfb_bs_ids"><?php esc_html_e( 'Select products', 'storefuse-bridge' ); ?></label></th>
+                    <td>
+                        <select id="sfb-product-selection" class="wc-product-search" multiple="multiple" style="width:100%" data-placeholder="Search products" data-action="woocommerce_json_search_products">
+                        <?php foreach ( array_filter( array_map( 'absint', explode( ',', $s['homepage_best_sellers_ids'] ?? '' ) ) ) as $product_id ) :
+                            $selected_product = wc_get_product( $product_id );
+                            if ( ! $selected_product ) { continue; } ?>
+                            <option value="<?php echo esc_attr( $product_id ); ?>" selected><?php echo esc_html( $selected_product->get_name() ); ?></option>
+                        <?php endforeach; ?>
+                        </select>
+                        <input type="hidden" id="sfb_bs_ids" name="storefuse_bridge_settings[homepage_best_sellers_ids]" value="<?php echo esc_attr( $s['homepage_best_sellers_ids'] ?? '' ); ?>" />
+                        <p class="description">Products appear in selection order.</p>
+                    </td>
                 </tr>
             </table>
             <h3><?php esc_html_e( 'New arrivals', 'storefuse-bridge' ); ?></h3>

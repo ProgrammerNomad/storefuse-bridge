@@ -18,6 +18,13 @@ class StoreFuse_Bridge_Module_Account extends StoreFuse_Bridge_Module {
 
     public function register_routes(): void {
 
+        register_rest_route( $this->namespace, '/account/deletion-request', [
+            [ 'methods' => 'GET', 'callback' => [ StoreFuse_Bridge_Privacy::class, 'status' ],
+              'permission_callback' => [ StoreFuse_Bridge_Permissions::class, 'require_login' ] ],
+            [ 'methods' => 'POST', 'callback' => [ StoreFuse_Bridge_Privacy::class, 'request' ],
+              'permission_callback' => [ StoreFuse_Bridge_Permissions::class, 'require_login_and_nonce' ] ],
+        ] );
+
         register_rest_route( $this->namespace, '/account', [
             [
                 'methods'             => WP_REST_Server::READABLE,
@@ -69,6 +76,12 @@ class StoreFuse_Bridge_Module_Account extends StoreFuse_Bridge_Module {
     // ── Handlers ─────────────────────────────────────────────────────────────
 
     public function register_device_token( WP_REST_Request $request ): WP_REST_Response {
+        if ( ! apply_filters( 'storefuse_bridge_push_available', false ) ) {
+            return StoreFuse_Bridge_Errors::validation_error(
+                'Push notifications are not configured for this store.'
+            );
+        }
+
         if ( ! is_user_logged_in() ) {
             return StoreFuse_Bridge_Errors::not_authenticated();
         }

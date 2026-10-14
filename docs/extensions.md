@@ -1,4 +1,4 @@
-# StoreFuse Bridge - extension hooks (v0.1.0)
+# StoreFuse Bridge - extension hooks (1.1)
 
 Companion WordPress plugins extend StoreFuse Bridge **without editing core**. Use filters to reshape JSON; use actions to react to lifecycle events.
 
@@ -23,6 +23,8 @@ if ( version_compare( STOREFUSE_BRIDGE_VERSION, '0.1.0', '<' ) ) {
 After Bridge updates, re-test critical filters (product, cart, checkout) on staging.
 
 ---
+
+See [1.1 capability and module registry contracts](release-1.1.md) before enabling optional features.
 
 ## Filters (response and data shaping)
 

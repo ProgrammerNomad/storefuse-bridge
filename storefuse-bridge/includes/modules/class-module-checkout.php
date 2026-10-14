@@ -20,6 +20,12 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
 
     public function register_routes(): void {
 
+        register_rest_route( $this->namespace, '/checkout/quote', [
+            'methods' => WP_REST_Server::CREATABLE,
+            'callback' => [ $this, 'quote' ],
+            'permission_callback' => [ StoreFuse_Bridge_Auth::class, 'cart_permission' ],
+        ] );
+
         register_rest_route( $this->namespace, '/checkout/config', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ $this, 'get_config' ],
@@ -90,7 +96,16 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         $data = apply_filters( 'storefuse_bridge_checkout_config', [
             'checkout_mode'                => StoreFuse_Bridge_Settings::get( 'checkout_mode', 'redirect' ),
             'checkout_redirect_label'      => StoreFuse_Bridge_Settings::get( 'checkout_redirect_label', 'Proceed to Checkout' ),
-            'checkout_page_url'            => StoreFuse_Bridge_Settings::get( 'checkout_page_url', '' ) ?: wc_get_checkout_url(),
+            'checkout_page_url'            => self::checkout_url(),
+            'country_locale'               => WC()->countries->get_country_locale(),
+            'default_country'              => WC()->customer->get_billing_country() ?: WC()->countries->get_base_country(),
+            'headless_gateways'             => self::headless_gateways(),
+            'requires_login'                => ! is_user_logged_in() && WC()->checkout()->is_registration_required(),
+            'native_fields_supported'       => $this->native_fields_supported(),
+            'terms_url'                     => wc_get_page_permalink( 'terms' ),
+            'privacy_url'                   => get_privacy_policy_url(),
+            'shipping_countries'            => WC()->countries->get_shipping_countries(),
+            'shipping_states'               => WC()->countries->get_shipping_country_states(),
             'billing_fields'               => $this->format_fields( $checkout->get_checkout_fields( 'billing' ) ),
             'shipping_fields'              => $this->format_fields( $checkout->get_checkout_fields( 'shipping' ) ),
             'has_shipping'                 => WC()->cart->needs_shipping(),
@@ -100,6 +115,7 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
                 get_option( 'woocommerce_enable_order_comments', 'yes' ) === 'yes'
             ),
             'terms_and_conditions_page_id' => (int) get_option( 'woocommerce_terms_page_id', 0 ),
+            'terms_checkbox_enabled'       => wc_terms_and_conditions_checkbox_enabled(),
             'allowed_countries'            => WC()->countries->get_allowed_countries(),
             'states'                       => WC()->countries->get_allowed_country_states(),
         ] );
@@ -119,6 +135,9 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         $methods  = [];
 
         foreach ( $gateways as $gateway ) {
+            if ( ! in_array( $gateway->id, self::headless_gateways(), true ) ) {
+                continue;
+            }
             $methods[] = [
                 'id'                => $gateway->id,
                 'title'             => $gateway->get_title(),
@@ -147,6 +166,13 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
      */
     public function get_shipping_methods( WP_REST_Request $request ): WP_REST_Response {
         StoreFuse_Bridge_Auth::ensure_cart();
+
+        if ( $request->get_param( 'country' ) ) {
+            $error = StoreFuse_Bridge_Auth::check_cart_nonce( $request );
+            if ( $error ) {
+                return $error;
+            }
+        }
 
         if ( WC()->cart->is_empty() ) {
             return StoreFuse_Bridge_Response::with_no_store(
@@ -205,7 +231,7 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
 
         return StoreFuse_Bridge_Response::with_no_store(
             $this->success(
-                apply_filters( 'storefuse_bridge_shipping_packages', [ 'packages' => $result ] ),
+                apply_filters( 'storefuse_bridge_shipping_packages', [ 'quote_token' => WC()->cart->get_cart_hash(), 'packages' => $result, 'cart' => ( new StoreFuse_Bridge_Module_Cart() )->get_cart( $request )->get_data()['data'] ] ),
                 'storefuse.checkout.v1'
             )
         );
@@ -242,15 +268,6 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         $key_check       = StoreFuse_Bridge_Checkout_Idempotency::validate_key( $idempotency_key );
         if ( $key_check instanceof WP_REST_Response ) {
             return $key_check;
-        }
-
-        if ( WC()->cart->is_empty() ) {
-            return StoreFuse_Bridge_Errors::validation_error( 'Your cart is empty.' );
-        }
-
-        $stock_error = $this->validate_cart_stock();
-        if ( $stock_error ) {
-            return $stock_error;
         }
 
         $billing           = (array) $request->get_param( 'billing' );
@@ -293,10 +310,35 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         }
 
         try {
+            // Recheck after taking the lock; another request may have completed.
+            $cached = StoreFuse_Bridge_Checkout_Idempotency::get_cached( $storage_key, $fingerprint );
+            if ( is_array( $cached ) ) {
+                return StoreFuse_Bridge_Response::with_no_store( new WP_REST_Response( $cached['body'], $cached['status'] ) );
+            }
+            if ( $cached === 'conflict' ) {
+                return StoreFuse_Bridge_Errors::idempotency_key_reused();
+            }
+            if ( ! is_user_logged_in() && WC()->checkout()->is_registration_required() ) {
+                return StoreFuse_Bridge_Errors::validation_error( 'Sign in or use web checkout to create an account.' );
+            }
+            if ( ! $this->native_fields_supported() ) {
+                return StoreFuse_Bridge_Errors::validation_error( 'Use web checkout to complete this store’s additional fields.' );
+            }
+            if ( WC()->cart->is_empty() ) {
+                return StoreFuse_Bridge_Errors::validation_error( 'Your cart is empty.' );
+            }
+            $stock_error = $this->validate_cart_stock();
+            if ( $stock_error ) {
+                return $stock_error;
+            }
+
             // Validate gateway
             $gateways = WC()->payment_gateways()->get_available_payment_gateways();
             if ( ! isset( $gateways[ $payment_method_id ] ) ) {
                 return StoreFuse_Bridge_Errors::validation_error( 'Invalid payment method.' );
+            }
+            if ( ! in_array( $payment_method_id, self::headless_gateways(), true ) ) {
+                return StoreFuse_Bridge_Errors::validation_error( 'Use web checkout for this payment method.' );
             }
             $gateway = $gateways[ $payment_method_id ];
 
@@ -304,6 +346,15 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
             $billing_error = $this->validate_billing( $billing );
             if ( $billing_error ) {
                 return $billing_error;
+            }
+            if ( WC()->cart->needs_shipping() ) {
+                $error = $this->validate_address( $ship_to_different ? $shipping : $billing, 'shipping' );
+                if ( $error ) {
+                    return $error;
+                }
+            }
+            if ( wc_terms_and_conditions_checkbox_enabled() && ! $request->get_param( 'terms' ) ) {
+                return StoreFuse_Bridge_Errors::validation_error( 'Please accept the terms and conditions.' );
             }
 
             // Set chosen shipping methods before calculating totals
@@ -321,6 +372,11 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
                 return $shipping_error;
             }
 
+            $quote_token = (string) $request->get_param( 'quote_token' );
+            if ( ! $quote_token || ! hash_equals( WC()->cart->get_cart_hash(), $quote_token ) ) {
+                return StoreFuse_Bridge_Errors::validation_error( 'Your cart or total changed. Review delivery and total again.' );
+            }
+
             // Build data array for WC_Checkout::create_order()
             $checkout_data = $this->build_checkout_data(
                 $billing,
@@ -330,6 +386,13 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
                 $gateway->get_title(),
                 $order_notes
             );
+
+            // Persist before order creation; interrupted attempts must not charge twice.
+            $pending = StoreFuse_Bridge_Errors::checkout_in_progress();
+            StoreFuse_Bridge_Checkout_Idempotency::store( $storage_key, $fingerprint, $pending->get_status(), $pending->get_data() );
+            if ( ! is_array( get_option( $storage_key ) ) ) {
+                return StoreFuse_Bridge_Errors::checkout_failed();
+            }
 
             // Create the order (WC fires woocommerce_checkout_order_created internally).
             try {
@@ -350,6 +413,14 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
                 return StoreFuse_Bridge_Errors::checkout_failed();
             }
 
+            $recovery = $this->success( [
+                'order_id' => (int) $order_id,
+                'order_key' => $order->get_order_key(),
+                'order_status' => $order->get_status(),
+                'payment_result' => [ 'type' => 'pending', 'redirect_url' => '' ],
+            ], 'storefuse.checkout.v1' );
+            StoreFuse_Bridge_Checkout_Idempotency::store( $storage_key, $fingerprint, 200, $recovery->get_data() );
+
             // WC core does not always fire processed on programmatic create_order; dispatch once for extensions.
             do_action( 'woocommerce_checkout_order_processed', $order_id, $checkout_data, $order );
 
@@ -365,9 +436,6 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
                 return $payment_response;
             }
 
-            WC()->cart->empty_cart();
-            wc_clear_notices();
-
             $response = StoreFuse_Bridge_Response::with_no_store(
                 $this->success( $payment_response, 'storefuse.checkout.v1' )
             );
@@ -381,6 +449,8 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
                 );
             }
 
+            WC()->cart->empty_cart();
+            wc_clear_notices();
             return $response;
         } finally {
             if ( $lock_key !== '' ) {
@@ -478,10 +548,10 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
             return StoreFuse_Bridge_Errors::validation_error( 'Your cart is empty.' );
         }
 
-        $checkout_url = apply_filters( 'storefuse_bridge_checkout_redirect_url', wc_get_checkout_url() );
+        $checkout_url = self::checkout_url();
 
         return StoreFuse_Bridge_Response::with_no_store(
-            $this->success( [ 'redirect_url' => esc_url_raw( $checkout_url ) ], 'storefuse.checkout.v1' )
+            $this->success( array_merge( [ 'redirect_url' => esc_url_raw( $checkout_url ) ], StoreFuse_Bridge_Checkout_Handoff::issue() ), 'storefuse.checkout.v1' )
         );
     }
 
@@ -526,17 +596,43 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
 
     // ── Helpers 
 
+    public static function headless_gateways(): array {
+        return (array) apply_filters( 'storefuse_bridge_headless_gateways', [ 'cod', 'bacs', 'cheque' ] );
+    }
+
+    public static function checkout_url(): string {
+        $url = (string) StoreFuse_Bridge_Settings::get( 'checkout_page_url', '' );
+        $url = (string) apply_filters( 'storefuse_bridge_checkout_redirect_url', $url ?: wc_get_checkout_url() );
+        $target = wp_parse_url( $url );
+        $site = wp_parse_url( wc_get_checkout_url() );
+        foreach ( [ 'scheme', 'host', 'port' ] as $part ) {
+            if ( ( $target[ $part ] ?? '' ) !== ( $site[ $part ] ?? '' ) ) {
+                return wc_get_checkout_url();
+            }
+        }
+        return esc_url_raw( $url );
+    }
+
     private function validate_billing( array $billing ): ?WP_REST_Response {
-        $fields = WC()->checkout()->get_checkout_fields( 'billing' );
+        return $this->validate_address( $billing, 'billing' );
+    }
+
+    private function validate_address( array $billing, string $kind ): ?WP_REST_Response {
+        $country = strtoupper( (string) ( $billing['country'] ?? '' ) );
+        $countries = $kind === 'shipping' ? WC()->countries->get_shipping_countries() : WC()->countries->get_allowed_countries();
+        if ( ! isset( $countries[ $country ] ) ) {
+            return StoreFuse_Bridge_Errors::validation_error( 'Select a supported ' . $kind . ' country.' );
+        }
+        $fields = array_replace( WC()->checkout()->get_checkout_fields( $kind ), WC()->countries->get_address_fields( $country, $kind . '_' ) );
 
         foreach ( $fields as $key => $field ) {
             if ( empty( $field['required'] ) ) {
                 continue;
             }
-            $name = (string) preg_replace( '/^billing_/', '', $key );
-            if ( empty( $billing[ $name ] ) ) {
+            $name = (string) preg_replace( '/^(billing|shipping)_/', '', $key );
+            if ( ! isset( $billing[ $name ] ) || ! is_scalar( $billing[ $name ] ) || trim( (string) $billing[ $name ] ) === '' ) {
                 return StoreFuse_Bridge_Errors::validation_error(
-                    sprintf( 'Billing %s is required.', str_replace( '_', ' ', $name ) )
+                    sprintf( '%s %s is required.', ucfirst( $kind ), str_replace( '_', ' ', $name ) )
                 );
             }
         }
@@ -544,8 +640,36 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
         if ( ! empty( $billing['email'] ) && ! is_email( $billing['email'] ) ) {
             return StoreFuse_Bridge_Errors::invalid_email();
         }
+        $states = WC()->countries->get_states( $country );
+        if ( is_array( $states ) && $states && ! isset( $states[ $billing['state'] ?? '' ] ) ) {
+            return StoreFuse_Bridge_Errors::validation_error( 'Select a valid state or province.' );
+        }
+        if ( ! empty( $billing['postcode'] ) && ! WC_Validation::is_postcode( $billing['postcode'], $country ) ) {
+            return StoreFuse_Bridge_Errors::validation_error( 'Enter a valid postcode.' );
+        }
 
         return null;
+    }
+
+    public function quote( WP_REST_Request $request ): WP_REST_Response {
+        $limit = StoreFuse_Bridge_Auth::guard_session_write( $request, 'cart_write' );
+        if ( $limit ) {
+            return $limit;
+        }
+        StoreFuse_Bridge_Auth::ensure_cart();
+        $billing = (array) $request->get_param( 'billing' );
+        $different = (bool) $request->get_param( 'ship_to_different_address' );
+        $shipping = $different ? (array) $request->get_param( 'shipping' ) : $billing;
+        $error = $this->validate_billing( $billing );
+        if ( ! $error && WC()->cart->needs_shipping() ) {
+            $error = $this->validate_address( $shipping, 'shipping' );
+        }
+        if ( $error ) {
+            return $error;
+        }
+        $this->apply_customer_address( $billing, $shipping, $different );
+        WC()->session->set( 'chosen_shipping_methods', (array) $request->get_param( 'shipping_method' ) );
+        return $this->get_shipping_methods( new WP_REST_Request( 'GET', '/storefuse/v1/checkout/shipping-methods' ) );
     }
 
     private function validate_cart_stock(): ?WP_REST_Response {
@@ -570,15 +694,18 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
      * @param list<string> $shipping_methods
      */
     private function validate_shipping_methods( array $shipping_methods ): ?WP_REST_Response {
-        if ( ! WC()->cart->needs_shipping() || empty( $shipping_methods ) ) {
+        if ( ! WC()->cart->needs_shipping() ) {
             return null;
         }
 
         $packages = WC()->shipping()->get_packages();
+        if ( empty( $packages ) || count( $shipping_methods ) !== count( $packages ) ) {
+            return StoreFuse_Bridge_Errors::validation_error( 'Select a delivery method for every shipment.' );
+        }
         foreach ( $packages as $index => $package ) {
-            $chosen = $shipping_methods[ $index ] ?? $shipping_methods[0] ?? '';
+            $chosen = $shipping_methods[ $index ] ?? '';
             if ( $chosen === '' ) {
-                continue;
+                return StoreFuse_Bridge_Errors::validation_error( 'No delivery method selected.' );
             }
             if ( ! isset( $package['rates'][ $chosen ] ) ) {
                 return StoreFuse_Bridge_Errors::validation_error( 'Selected shipping method is not available.' );
@@ -673,6 +800,25 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
     /**
      * Normalise WC checkout fields array into the StoreFuse field shape.
      */
+    private function native_fields_supported(): bool {
+        // Custom field processing and validation belong to the WooCommerce form.
+        $standard = [ 'first_name', 'last_name', 'company', 'country', 'address_1', 'address_2', 'city', 'state', 'postcode', 'phone', 'email' ];
+        foreach ( [ 'billing', 'shipping' ] as $kind ) {
+            foreach ( WC()->checkout()->get_checkout_fields( $kind ) as $key => $field ) {
+                $name = preg_replace( '/^(billing|shipping)_/', '', $key );
+                if ( ! in_array( $name, $standard, true ) || ! in_array( $field['type'] ?? 'text', [ 'text', 'tel', 'email', 'country', 'state', 'select' ], true ) ) {
+                    return false;
+                }
+            }
+        }
+        foreach ( WC()->checkout()->get_checkout_fields( 'order' ) as $key => $field ) {
+            if ( $key !== 'order_comments' ) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private function format_fields( array $wc_fields ): array {
         $result = [];
 

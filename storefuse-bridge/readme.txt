@@ -4,7 +4,7 @@ Tags: woocommerce, headless, rest-api, storefuse
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.0.2
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -24,6 +24,9 @@ Documentation: https://github.com/ProgrammerNomad/storefuse-bridge/blob/main/doc
 4. Configure under StoreFuse in wp-admin
 
 == Changelog ==
+
+= 1.1.0 =
+Session recovery, protected checkout handoff, durable idempotency, delivery validation, customer privacy requests, capability gating and admin setup improvements.
 
 = 0.2.0 =
 Production readiness fixes: cache flush, CORS, auth/me guest contract, logging, security hardening, idempotent checkout.

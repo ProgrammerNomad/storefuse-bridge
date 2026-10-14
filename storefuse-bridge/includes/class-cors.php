@@ -7,8 +7,23 @@ defined( 'ABSPATH' ) || exit;
 class StoreFuse_Bridge_Cors {
 
     public static function init(): void {
+        add_filter( 'rest_send_cors_headers', [ self::class, 'suppress_core_cors_for_storefuse' ], 10, 2 );
         add_filter( 'rest_pre_dispatch', [ self::class, 'handle_preflight' ], 10, 3 );
-        add_filter( 'rest_pre_serve_request', [ self::class, 'maybe_send_cors_headers' ], 10, 4 );
+        add_filter( 'rest_pre_serve_request', [ self::class, 'maybe_send_cors_headers' ], 100, 4 );
+    }
+
+    /**
+     * WordPress core sends permissive REST CORS by default. Disable that for our
+     * namespace so only Bridge-controlled headers apply (see send_cors_headers).
+     *
+     * @param bool             $send
+     * @param WP_REST_Request  $request
+     */
+    public static function suppress_core_cors_for_storefuse( bool $send, WP_REST_Request $request ): bool {
+        if ( strpos( $request->get_route(), '/storefuse/v1/' ) === 0 ) {
+            return false;
+        }
+        return $send;
     }
 
     /**
@@ -48,6 +63,14 @@ class StoreFuse_Bridge_Cors {
     }
 
     private static function send_cors_headers(): void {
+        // WordPress sends permissive REST headers earlier. Replace them only for
+        // our namespace, including denied origins and preflight responses.
+        foreach ( [ 'Origin', 'Credentials', 'Methods', 'Headers', 'Max-Age' ] as $suffix ) {
+            header_remove( 'Access-Control-Allow-' . $suffix );
+        }
+        header_remove( 'Access-Control-Expose-Headers' );
+        header_remove( 'Access-Control-Max-Age' );
+        header( 'Vary: Origin', false );
         if ( ! (bool) StoreFuse_Bridge_Settings::get( 'cors_enabled', false ) ) {
             return;
         }

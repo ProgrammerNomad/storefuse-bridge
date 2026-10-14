@@ -2,7 +2,7 @@
 
 Run on **WP + WooCommerce + StoreFuse Bridge 1.0.2** before production. Base: `{site}/wp-json/storefuse/v1`.
 
-Record on the release ticket: **Bridge** version from `GET /status`, **WordPress** version, **WooCommerce** version, **HPOS** on/off.
+Record on the release ticket: **Bridge** `version`, **`build_id`** / **`build_time`** (after [deploy-local.ps1](../scripts/deploy-local.ps1)), **WordPress** and **WooCommerce** versions from `GET /status`, **HPOS** on/off. Full checklist: [BASELINE.md](BASELINE.md).
 
 Automated in CI: PHP syntax, PHPUnit (validator, URL safety, error envelope, version smoke). **Not** automated: live WC session, cookies, CORS from browser origin.
 
@@ -41,5 +41,9 @@ curl -sS -b cookies.txt "{site}/wp-json/storefuse/v1/auth/nonce"
 Record results in your release ticket; link [acceptance-gates.md](acceptance-gates.md) when all critical rows pass.
 
 ## Local XAMPP
+
+1. Sync plugin: `./scripts/deploy-local.ps1 -WordPressPath C:\xampp\htdocs` (adjust if WP lives in a subfolder).
+2. Optional fixtures: `php scripts/local-fixtures.php C:\xampp\htdocs "$env:TEMP\storefuse-fixtures"`.
+3. Confirm `data.build_id` in `GET /status` matches the deploy script output.
 
 If `{site}` is `http://localhost/...`, CORS and cookie `Secure` flags differ from production-use staging that matches production HTTPS and domain.

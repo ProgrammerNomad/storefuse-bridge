@@ -1,5 +1,7 @@
 # StoreFuse Bridge documentation
 
+Current integration: [Bridge 1.1 release contract](release-1.1.md).
+
 Headless WooCommerce API for **Next.js**, **Flutter**, and other clients - one namespace: `/wp-json/storefuse/v1`.
 
 | Document | Purpose |
@@ -16,6 +18,8 @@ Headless WooCommerce API for **Next.js**, **Flutter**, and other clients - one n
 | [release-bar.md](release-bar.md) | v1.0 release decision (audit follow-up) |
 | [acceptance-gates.md](acceptance-gates.md) | 14-gate production scorecard |
 | [staging-smoke.md](staging-smoke.md) | Manual smoke on WP+WC staging |
+| [BASELINE.md](BASELINE.md) | Phase 0 sync checklist and `/status` version record |
+| [IMPLEMENTATION-TRACKER.md](IMPLEMENTATION-TRACKER.md) | Audit F01–F26 implementation queue |
 | [compatibility-matrix.md](compatibility-matrix.md) | WP / WC / PHP support |
 | [clients/checkout-payments.md](clients/checkout-payments.md) | Async / pending payment client flow |
 | [clients/nextjs.md](clients/nextjs.md) | Browser cookies, CORS, ISR |

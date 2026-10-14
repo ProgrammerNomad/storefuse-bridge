@@ -1,3 +1,5 @@
+> Historical proposal. Bridge 1.1 ships an instance-list module filter, not the descriptor registry proposed below. See [the current extension contract](release-1.1.md).
+
 # Extension API v0.2 (specification only)
 
 **Status:** Document only - no v0.2 module registration code ships in Bridge 0.1.0.

@@ -11,6 +11,38 @@ class StoreFuse_Bridge_Auth {
 
     public static function init(): void {
         add_filter( 'determine_current_user', [ self::class, 'authenticate_application_password' ], 20 );
+        add_action( 'wp_ajax_storefuse_session', [ self::class, 'refresh_session' ] );
+        add_action( 'wp_ajax_nopriv_storefuse_session', [ self::class, 'refresh_session' ] );
+        add_action( 'set_logged_in_cookie', static function ( string $cookie ): void {
+            // Nonces issued in the login response must use the newly minted session.
+            $_COOKIE[ LOGGED_IN_COOKIE ] = $cookie;
+        } );
+    }
+
+    /**
+     * Cookie-authenticated nonce bootstrap outside REST's nonce validation cycle.
+     * No mutation and no wildcard CORS: browsers must be same-origin. Native
+     * clients present their own cookie jar. Authentication remains WordPress's.
+     */
+    public static function refresh_session(): void {
+        header_remove( 'Access-Control-Allow-Origin' );
+        header_remove( 'Access-Control-Allow-Credentials' );
+        nocache_headers();
+        if ( ( $_SERVER['REQUEST_METHOD'] ?? '' ) !== 'POST' ) {
+            wp_send_json_error( [ 'message' => 'POST required.' ], 405 );
+        }
+        $origin = get_http_origin();
+        $site = wp_parse_url( home_url() );
+        $expected = $site['scheme'] . '://' . $site['host'] . ( isset( $site['port'] ) ? ':' . $site['port'] : '' );
+        if ( $origin && $origin !== $expected ) {
+            wp_send_json_error( [ 'message' => 'Origin not allowed.' ], 403 );
+        }
+        if ( ( $_SERVER['HTTP_SEC_FETCH_SITE'] ?? '' ) === 'cross-site' ) {
+            wp_send_json_error( [ 'message' => 'Cross-site request not allowed.' ], 403 );
+        }
+        $data = self::bootstrap_nonces();
+        $data['logged_in'] = is_user_logged_in();
+        wp_send_json_success( $data );
     }
 
     /**
@@ -40,6 +72,7 @@ class StoreFuse_Bridge_Auth {
      * Requires a valid nonce AND an active WooCommerce cart session.
      */
     public static function checkout_permission( WP_REST_Request $request ): bool|WP_Error {
+        self::ensure_cart();
         if ( ! self::validate_nonce( $request, 'wc_store_api' ) ) {
             return new WP_Error( 'invalid_nonce', 'Security token missing or invalid.', [ 'status' => 403 ] );
         }
@@ -169,7 +202,11 @@ class StoreFuse_Bridge_Auth {
         $defaults = [
             'auth_nonce'      => 30,
             'login'           => 10,
+            'login_ip'        => 20,
+            'register'        => 5,
+            'register_ip'     => 10,
             'forgot_password' => 5,
+            'reset_password_ip' => 10,
             'notify_signup'   => 10,
             'search'          => 60,
             'checkout'        => 8,
@@ -179,7 +216,7 @@ class StoreFuse_Bridge_Auth {
         ];
         $default = $defaults[ $action ] ?? 10;
 
-        if ( in_array( $action, [ 'login', 'forgot_password', 'auth_nonce' ], true ) ) {
+        if ( in_array( $action, [ 'login', 'login_ip', 'register', 'register_ip', 'forgot_password', 'auth_nonce', 'reset_password_ip' ], true ) ) {
             return (int) apply_filters( 'storefuse_bridge_auth_max_attempts', $default, $action );
         }
 
@@ -203,6 +240,11 @@ class StoreFuse_Bridge_Auth {
      * @return WP_REST_Response|null Null when allowed.
      */
     public static function throttle( string $action, string $identifier, bool $rate_limit_response = false ): ?WP_REST_Response {
+        $lock = 'sfb_rate_' . hash( 'sha256', $action . '|' . $identifier );
+        if ( ! StoreFuse_Bridge_Checkout_Idempotency::acquire_lock( $lock ) ) {
+            return StoreFuse_Bridge_Errors::rate_limit_exceeded( 1 );
+        }
+        try {
         if ( self::is_throttled( $action, $identifier ) ) {
             if ( $rate_limit_response ) {
                 return StoreFuse_Bridge_Errors::rate_limit_exceeded( self::throttle_window_for( $action ) );
@@ -211,6 +253,9 @@ class StoreFuse_Bridge_Auth {
         }
         self::record_throttle_failure( $action, $identifier );
         return null;
+        } finally {
+            StoreFuse_Bridge_Checkout_Idempotency::release_lock( $lock );
+        }
     }
 
     /**

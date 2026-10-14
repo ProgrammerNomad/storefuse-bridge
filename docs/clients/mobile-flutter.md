@@ -4,7 +4,7 @@ Flutter talks to the **same** JSON contract as web: `/wp-json/storefuse/v1`. Ses
 
 **Auth SSOT:** [auth-strategy.md](../auth-strategy.md) (cookies now; Application Passwords for token-friendly mobile).
 
-**Planning reference:** [storefuse-flutter](https://github.com/ProgrammerNomad/storefuse-flutter) docs (roadmap only until app code ships).
+**Planning reference:** [storefuse-flutter](https://github.com/ProgrammerNomad/storefuse-flutter) docs (implemented Flutter client).
 
 ---
 
@@ -15,13 +15,15 @@ Flutter talks to the **same** JSON contract as web: `/wp-json/storefuse/v1`. Ses
 - Set `Cache-Control: no-store` behavior client-side for cart, auth, account, orders.
 - Persist **WooCommerce session cookies** in the jar (required).
 - Send **`X-StoreFuse-Cart-Token`** when cookies are unavailable (Bridge **1.0.1+** signed restore; verify on WC per [cart-token-restore.md](../cart-token-restore.md)). Prefer cookie jar; header alone is not login.
-- **`minSupportedBridgeVersion`:** compare `GET /status` → `data.version` to **`1.0.2`** before guest cart flows (requires `cart_nonce` on `/auth/nonce` and `/cart`).
+- **`minSupportedBridgeVersion`:** compare `GET /status` → `data.version` to **`1.1.0`** before guest cart flows (requires `cart_nonce` on `/auth/nonce` and `/cart`).
 
 Packages such as `cookie_jar` + `dio` or `http` with a custom client are typical; implementation is app-specific.
 
 ---
 
 ## Auth flow (native)
+
+Bridge 1.1: first restore the cookie session using `POST /wp-admin/admin-ajax.php` with form `action=storefuse_session`. Send `X-WP-Nonce` on authenticated GET requests as well as writes. See [the complete 1.1 contract](../release-1.1.md); the nonce-only bootstrap below is for fresh guest sessions.
 
 1. `GET /auth/nonce` - no cookies required; read `nonce` and `cart_nonce` (**1.0.2+**).
 2. `POST /auth/login` with header `X-WP-Nonce: {nonce}`; store all `Set-Cookie` headers in the jar.
@@ -85,6 +87,21 @@ Reset emails use `storefront_url` + `storefront_reset_path` from WP settings, or
 ## Webhooks and push
 
 Bridge outbound webhooks (ISR revalidation) are not consumed by the Flutter app directly. See [webhooks-flutter.md](webhooks-flutter.md) for signature verification vs FCM/order push patterns.
+
+Push tokens: debug Flutter builds may call `POST /account/device-token` with a placeholder; production requires merchant FCM/APNs. See the Flutter app `docs/push-notifications.md`.
+
+### Capability matrix (`GET /status` → `data.features`)
+
+| Feature flag | Bridge default | Flutter behavior |
+|--------------|----------------|------------------|
+| `headless_checkout` | from settings | Native checkout vs redirect WebView |
+| `stock_alerts` | `false` until `storefuse_bridge_stock_alerts_available` | Notify UI hidden; API returns validation error when disabled |
+| `push_notifications` | `false` until `storefuse_bridge_push_available` | No token upload unless flag true **and** build defines `REGISTER_DEVICE_TOKEN=true` (optional `DEVICE_PUSH_TOKEN` stub) |
+| `returns_available` | `false` until filter | Order return actions hidden |
+| `invoice_available` | `false` until filter | Invoice download hidden |
+| `pincode_serviceability` | `false` until filter | Pincode checker hidden on product detail |
+
+Device tokens: after login, the app may call `POST /account/device-token` when push is enabled and `REGISTER_DEVICE_TOKEN` is set at compile time. Delivery still requires merchant FCM/APNs wiring via a companion plugin.
 
 ---
 

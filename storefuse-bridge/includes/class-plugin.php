@@ -29,6 +29,8 @@ final class StoreFuse_Bridge {
         $this->load_textdomain();
         $this->check_woocommerce_version();
         StoreFuse_Bridge_Auth::init();
+        StoreFuse_Bridge_Checkout_Handoff::init();
+        StoreFuse_Bridge_Privacy::init();
         StoreFuse_Bridge_Cart_Session_Token::init();
         $this->load_modules();
         $this->register_hooks();
@@ -98,7 +100,11 @@ final class StoreFuse_Bridge {
             new StoreFuse_Bridge_Module_Webhooks(),
         ];
 
+        $this->modules = (array) apply_filters( 'storefuse_bridge_modules', $this->modules );
         foreach ( $this->modules as $module ) {
+            if ( ! $module instanceof StoreFuse_Bridge_Module ) {
+                continue;
+            }
             if ( $module->is_enabled() ) {
                 add_action( 'rest_api_init', [ $module, 'register_routes' ] );
             }

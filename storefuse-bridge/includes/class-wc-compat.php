@@ -16,6 +16,13 @@ class StoreFuse_Bridge_WC_Compat {
      */
     public static function features(): array {
         return [
+            'registration'        => get_option( 'woocommerce_enable_myaccount_registration', 'no' ) === 'yes',
+            'account_deletion'    => true,
+            'pincode_serviceability' => (bool) apply_filters( 'storefuse_bridge_pincode_serviceability_available', false ),
+            'stock_alerts'        => (bool) apply_filters( 'storefuse_bridge_stock_alerts_available', false ),
+            'returns'             => (bool) apply_filters( 'storefuse_bridge_returns_available', false ),
+            'invoice_download'    => (bool) apply_filters( 'storefuse_bridge_invoice_available', false ),
+            'push_notifications'  => (bool) apply_filters( 'storefuse_bridge_push_available', false ),
             'hpos'                => self::has_hpos(),
             'store_api'           => self::has_store_api(),
             'headless_checkout'   => self::headless_checkout_enabled(),
@@ -55,7 +62,7 @@ class StoreFuse_Bridge_WC_Compat {
         if ( ! (bool) StoreFuse_Bridge_Settings::get( 'module_checkout_enabled', true ) ) {
             return false;
         }
-        return StoreFuse_Bridge_Settings::get( 'checkout_mode', 'redirect' ) === 'headless';
+        return StoreFuse_Bridge_Settings::get( 'module_cart_enabled', true ) && StoreFuse_Bridge_Settings::get( 'checkout_mode', 'redirect' ) === 'headless';
     }
 
     // ── WooCommerce extensions ───────────────────────────────────────────────

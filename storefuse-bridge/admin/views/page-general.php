@@ -9,6 +9,15 @@ $s = StoreFuse_Bridge_Settings::all();
     <form method="post" action="options.php">
         <?php settings_fields( 'storefuse_bridge_settings_group' ); ?>
 
+        <div class="sfb-card">
+            <h2><?php esc_html_e( 'Mobile app identity', 'storefuse-bridge' ); ?></h2>
+            <p><?php esc_html_e( 'Your app uses the WordPress site name and logo. Set the app colour independently of announcement banners.', 'storefuse-bridge' ); ?></p>
+            <p><label for="sfb-app-colour">App primary colour</label>
+            <input id="sfb-app-colour" class="sfb-color-picker" name="storefuse_bridge_settings[app_primary_color]" value="<?php echo esc_attr( $s['app_primary_color'] ?? '#E85D04' ); ?>"></p>
+            <p><label for="sfb-support-url">Customer support page</label>
+            <input type="url" id="sfb-support-url" class="regular-text" name="storefuse_bridge_settings[app_support_url]" value="<?php echo esc_url( $s['app_support_url'] ?? '' ); ?>"></p>
+        </div>
+
         <!-- ── Announcement Bar ─────────────────────────────────────── -->
         <div class="sfb-card">
             <h2><?php esc_html_e( 'Announcement Bar', 'storefuse-bridge' ); ?></h2>

@@ -32,10 +32,11 @@ class StoreFuse_Bridge_Format {
     /**
      * Format a WordPress attachment into the canonical image shape.
      *
-     * @param int|null $attachment_id
+     * @param int|string|null $attachment_id
      * @return array{ url: string|null, alt: string, width: int|null, height: int|null, srcset: string[] }
      */
-    public static function image( ?int $attachment_id ): array {
+    public static function image( int|string|null $attachment_id ): array {
+        $attachment_id = (int) $attachment_id;
         if ( ! $attachment_id ) {
             return [
                 'url'    => wc_placeholder_img_src( 'woocommerce_single' ),
@@ -175,12 +176,17 @@ class StoreFuse_Bridge_Format {
         // Attributes
         $attributes = [];
         foreach ( $product->get_attributes() as $attr ) {
-            if ( ! $attr->get_visible() ) {
+            if ( ! $attr->get_visible() && ! $attr->get_variation() ) {
                 continue;
             }
             $attributes[] = [
                 'name'    => wc_attribute_label( $attr->get_name(), $product ),
                 'slug'    => $attr->get_name(),
+                'variation' => $attr->get_variation(),
+                'visible' => $attr->get_visible(),
+                'option_values' => $attr->is_taxonomy()
+                    ? array_map( static fn( $term ) => [ 'label' => $term->name, 'value' => $term->slug ], wc_get_product_terms( $product->get_id(), $attr->get_name(), [ 'fields' => 'all' ] ) )
+                    : array_map( static fn( $value ) => [ 'label' => $value, 'value' => $value ], $attr->get_options() ),
                 'options' => $attr->is_taxonomy()
                     ? wc_get_product_terms( $product->get_id(), $attr->get_name(), [ 'fields' => 'names' ] )
                     : $attr->get_options(),
@@ -199,6 +205,10 @@ class StoreFuse_Bridge_Format {
                 $variations[] = [
                     'id'           => (string) $variation->get_id(),
                     'sku'          => $variation->get_sku(),
+                    'purchasable'  => $variation->is_purchasable(),
+                    'on_sale'      => $variation->is_on_sale(),
+                    'regular_price' => self::price( $variation->get_regular_price() ),
+                    'sale_price'   => $variation->is_on_sale() ? self::price( $variation->get_sale_price() ) : null,
                     'attributes'   => $variation_data['attributes'],
                     'price'        => self::price( $variation->get_price() ),
                     'stock_status' => $variation->get_stock_status(),
@@ -218,6 +228,8 @@ class StoreFuse_Bridge_Format {
         return [
             'id'                => (string) $product->get_id(),
             'slug'              => $product->get_slug(),
+            'permalink'         => get_permalink( $product->get_id() ),
+            'purchasable'       => $product->is_purchasable(),
             'name'              => $product->get_name(),
             'description'       => $product->get_description(),
             'short_description' => $product->get_short_description(),
@@ -327,6 +339,7 @@ class StoreFuse_Bridge_Format {
             'number'               => $order->get_order_number(),
             'key'                  => $order->get_order_key(),
             'status'               => $order->get_status(),
+            'return_request'       => $order->get_meta( '_storefuse_return_request', true ) ?: null,
             'date_created'         => self::date(
                 $order->get_date_created()
                     ? $order->get_date_created()->date( 'Y-m-d H:i:s' )

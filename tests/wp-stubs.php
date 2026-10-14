@@ -94,6 +94,19 @@ if ( ! function_exists( 'get_option' ) ) {
     }
 }
 
+if ( ! function_exists( 'update_option' ) ) {
+    function update_option( string $key, $value, $autoload = null ): bool {
+        $GLOBALS['_sfb_options'][ $key ] = $value;
+        return true;
+    }
+}
+
+if ( ! function_exists( 'current_time' ) ) {
+    function current_time( string $type ): string {
+        return '2026-10-14 12:00:00';
+    }
+}
+
 if ( ! function_exists( 'delete_option' ) ) {
     function delete_option( string $option ): bool {
         unset( $GLOBALS['_sfb_options'][ $option ] );
@@ -164,6 +177,24 @@ if ( ! function_exists( 'wp_parse_url' ) ) {
     }
 }
 
+if ( ! function_exists( 'trailingslashit' ) ) {
+    function trailingslashit( string $url ): string {
+        return rtrim( $url, '/' ) . '/';
+    }
+}
+
+if ( ! function_exists( 'esc_url_raw' ) ) {
+    function esc_url_raw( string $url ): string {
+        return $url;
+    }
+}
+
+if ( ! function_exists( 'wc_get_checkout_url' ) ) {
+    function wc_get_checkout_url(): string {
+        return $GLOBALS['_sfb_wc_checkout_url'] ?? 'https://shop.test/checkout/';
+    }
+}
+
 if ( ! class_exists( 'WP_REST_Request' ) ) {
     class WP_REST_Request {
         /** @var array<string, string> */
@@ -194,6 +225,20 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
         public function get_param( string $key ) {
             return $this->params[ $key ] ?? null;
         }
+
+        public function get_route(): string {
+            return $this->route;
+        }
+
+        public function get_method(): string {
+            return $this->method;
+        }
+    }
+}
+
+if ( ! function_exists( 'esc_url_raw' ) ) {
+    function esc_url_raw( string $url ): string {
+        return trim( $url );
     }
 }
 

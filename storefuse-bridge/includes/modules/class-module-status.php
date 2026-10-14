@@ -41,6 +41,13 @@ class StoreFuse_Bridge_Module_Status extends StoreFuse_Bridge_Module {
             'health'        => $health,
         ];
 
+        if ( defined( 'STOREFUSE_BRIDGE_BUILD_ID' ) && STOREFUSE_BRIDGE_BUILD_ID !== '' ) {
+            $data['build_id'] = (string) STOREFUSE_BRIDGE_BUILD_ID;
+        }
+        if ( defined( 'STOREFUSE_BRIDGE_BUILD_TIME' ) && STOREFUSE_BRIDGE_BUILD_TIME !== '' ) {
+            $data['build_time'] = (string) STOREFUSE_BRIDGE_BUILD_TIME;
+        }
+
         /**
          * Filter the status response data.
          *

@@ -176,3 +176,8 @@
 .sfb-trust-badge-row .small-text {
     width: 60px !important;
 }
+
+.sfb-dashboard-grid { align-items: start; }
+.sfb-setup-steps { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
+.sfb-phone-preview { max-width:360px; border:2px solid #ccd0d4; border-radius:20px; padding:24px; margin:16px 0; background:#fff; }
+.sfb-collapsible > h2:focus-visible { outline:2px solid #2271b1; outline-offset:3px; }

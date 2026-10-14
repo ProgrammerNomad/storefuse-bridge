@@ -1,5 +1,7 @@
 # StoreFuse Bridge
 
+Current integration: [Bridge 1.1 release contract](docs/release-1.1.md).
+
 **Headless WooCommerce REST API** for Next.js, Flutter, and any web or mobile client.
 
 StoreFuse Bridge exposes a single versioned namespace - `/wp-json/storefuse/v1/*` - with storefront-shaped JSON (products, cart, checkout, account, orders, settings). Clients never need WooCommerce consumer keys or raw `wc/v3` responses.
@@ -10,7 +12,7 @@ StoreFuse Bridge exposes a single versioned namespace - `/wp-json/storefuse/v1/*
 
 - WordPress 6.0+
 - WooCommerce 7.0+
-- PHP 8.0+
+- PHP 8.1+ (8.0 legacy; CI tests 8.1–8.3)
 
 ---
 
@@ -20,6 +22,7 @@ StoreFuse Bridge exposes a single versioned namespace - `/wp-json/storefuse/v1/*
 2. Open **StoreFuse → Advanced** to set module toggles, storefront URL, and ISR webhook secret.
 3. Point your client at `{WOO_URL}/wp-json/storefuse/v1`.
 4. Call `GET /status` to confirm version and enabled modules.
+5. Local deploy: `./scripts/deploy-local.ps1 -RecordBaseline` - see [docs/BASELINE.md](docs/BASELINE.md).
 
 ---
 

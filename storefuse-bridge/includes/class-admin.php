@@ -6,6 +6,13 @@ defined( 'ABSPATH' ) || exit;
  */
 class StoreFuse_Bridge_Admin {
 
+    /**
+     * Capability required to view and save Bridge settings (WooCommerce shop managers).
+     */
+    public static function settings_capability(): string {
+        return (string) apply_filters( 'storefuse_bridge_settings_capability', 'manage_woocommerce' );
+    }
+
     public function __construct() {
         add_action( 'admin_menu',            [ $this, 'register_menus' ] );
         add_action( 'admin_init',            [ $this, 'register_settings' ] );
@@ -27,7 +34,7 @@ class StoreFuse_Bridge_Admin {
      * @return string[]
      */
     public function plugin_action_links( array $links ): array {
-        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+        if ( ! current_user_can( self::settings_capability() ) ) {
             return $links;
         }
 
@@ -56,10 +63,11 @@ class StoreFuse_Bridge_Admin {
     }
 
     public function register_menus(): void {
+        $cap = self::settings_capability();
         add_menu_page(
             __( 'StoreFuse Bridge', 'storefuse-bridge' ),
             __( 'StoreFuse', 'storefuse-bridge' ),
-            'manage_woocommerce',
+            $cap,
             'storefuse-bridge',
             [ $this, 'page_dashboard' ],
             'dashicons-rest-api',
@@ -70,7 +78,7 @@ class StoreFuse_Bridge_Admin {
             'storefuse-bridge',
             __( 'StoreFuse Bridge - Dashboard', 'storefuse-bridge' ),
             __( 'Dashboard', 'storefuse-bridge' ),
-            'manage_woocommerce',
+            $cap,
             'storefuse-bridge',
             [ $this, 'page_dashboard' ]
         );
@@ -92,7 +100,7 @@ class StoreFuse_Bridge_Admin {
                 'storefuse-bridge',
                 'StoreFuse - ' . $title,
                 $title,
-                'manage_woocommerce',
+                $cap,
                 $slug,
                 [ $this, $callback ]
             );
@@ -100,6 +108,10 @@ class StoreFuse_Bridge_Admin {
     }
 
     public function register_settings(): void {
+        add_filter(
+            'option_page_capability_storefuse_bridge_settings_group',
+            static fn() => StoreFuse_Bridge_Admin::settings_capability()
+        );
         register_setting(
             'storefuse_bridge_settings_group',
             'storefuse_bridge_settings',
@@ -114,6 +126,12 @@ class StoreFuse_Bridge_Admin {
 
         $existing = StoreFuse_Bridge_Settings::all();
         $patch    = [];
+        if ( array_key_exists( 'app_primary_color', $input ) ) {
+            $patch['app_primary_color'] = sanitize_hex_color( $input['app_primary_color'] ) ?: '#E85D04';
+        }
+        if ( array_key_exists( 'app_support_url', $input ) ) {
+            $patch['app_support_url'] = esc_url_raw( $input['app_support_url'], [ 'https', 'http' ] );
+        }
 
         if ( array_key_exists( 'announcement_bar_enabled', $input ) ) {
             $patch['announcement_bar_enabled'] = ! empty( $input['announcement_bar_enabled'] );
@@ -307,6 +325,8 @@ class StoreFuse_Bridge_Admin {
         );
 
         wp_enqueue_media();
+        wp_enqueue_script( 'wc-enhanced-select' );
+        wp_enqueue_style( 'woocommerce_admin_styles' );
 
         wp_enqueue_script(
             'storefuse-bridge-admin',
@@ -344,7 +364,7 @@ class StoreFuse_Bridge_Admin {
     public function ajax_flush_cache(): void {
         check_ajax_referer( 'sfb_admin_nonce', 'nonce' );
 
-        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+        if ( ! current_user_can( self::settings_capability() ) ) {
             wp_send_json_error( [ 'message' => 'Permission denied.' ] );
         }
 
@@ -355,7 +375,7 @@ class StoreFuse_Bridge_Admin {
     public function ajax_flush_cache_group(): void {
         check_ajax_referer( 'sfb_admin_nonce', 'nonce' );
 
-        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+        if ( ! current_user_can( self::settings_capability() ) ) {
             wp_send_json_error( [ 'message' => 'Permission denied.' ] );
         }
 
@@ -374,7 +394,7 @@ class StoreFuse_Bridge_Admin {
     public function ajax_clear_webhook_log(): void {
         check_ajax_referer( 'sfb_admin_nonce', 'nonce' );
 
-        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+        if ( ! current_user_can( self::settings_capability() ) ) {
             wp_send_json_error( [ 'message' => 'Permission denied.' ] );
         }
 
@@ -385,7 +405,7 @@ class StoreFuse_Bridge_Admin {
     public function ajax_test_webhook(): void {
         check_ajax_referer( 'sfb_admin_nonce', 'nonce' );
 
-        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+        if ( ! current_user_can( self::settings_capability() ) ) {
             wp_send_json_error( [ 'message' => 'Permission denied.' ] );
         }
 
@@ -400,7 +420,7 @@ class StoreFuse_Bridge_Admin {
 
     public function ajax_dismiss_setup_notice(): void {
         check_ajax_referer( 'sfb_admin_nonce', 'nonce' );
-        if ( current_user_can( 'manage_woocommerce' ) ) {
+        if ( current_user_can( self::settings_capability() ) ) {
             delete_transient( 'storefuse_bridge_show_setup_notice' );
         }
         wp_send_json_success();

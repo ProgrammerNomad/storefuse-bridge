@@ -29,6 +29,8 @@ desktop.ini
 *.zip
 /build/
 /dist/
+storefuse-bridge/build-info.php
+docs/BASELINE-RECORD.md
 
 # Optional: local WordPress test installs (uncomment if you keep WP in-repo)
 # /wordpress/

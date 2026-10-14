@@ -223,6 +223,9 @@ class StoreFuse_Bridge_Module_Orders extends StoreFuse_Bridge_Module {
     }
 
     public function return_request( WP_REST_Request $request ): WP_REST_Response {
+        if ( ! apply_filters( 'storefuse_bridge_returns_available', false ) ) {
+            return StoreFuse_Bridge_Errors::validation_error( 'Contact the store for its returns policy.' );
+        }
         if ( ! is_user_logged_in() ) {
             return StoreFuse_Bridge_Errors::not_authenticated();
         }
@@ -243,7 +246,17 @@ class StoreFuse_Bridge_Module_Orders extends StoreFuse_Bridge_Module {
             );
         }
 
-        $reason = $request->get_param( 'reason' ) ?? '';
+        $days = max( 0, (int) apply_filters( 'storefuse_bridge_return_window_days', 30, $order ) );
+        $completed = $order->get_date_completed();
+        if ( ! $completed || $days === 0 || $completed->getTimestamp() + $days * DAY_IN_SECONDS < time() ) {
+            return StoreFuse_Bridge_Errors::validation_error( 'This order is outside the return window.' );
+        }
+        if ( $order->get_meta( '_storefuse_return_request', true ) ) {
+            return StoreFuse_Bridge_Errors::validation_error( 'A return request already exists for this order.' );
+        }
+        $reason = sanitize_textarea_field( $request->get_param( 'reason' ) ?? '' );
+        $order->update_meta_data( '_storefuse_return_request', [ 'status' => 'requested', 'reason' => $reason, 'created_at' => gmdate( 'c' ) ] );
+        $order->save();
         $note   = __( 'Return requested by customer via StoreFuse.', 'storefuse-bridge' );
         if ( $reason ) {
             $note .= ' ' . __( 'Reason:', 'storefuse-bridge' ) . ' ' . $reason;

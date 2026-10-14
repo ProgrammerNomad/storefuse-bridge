@@ -185,6 +185,9 @@ class StoreFuse_Bridge_Module_Products extends StoreFuse_Bridge_Module {
     // ── POST /products/{slug}/notify ──────────────────────────────────────────
 
     public function notify_signup( WP_REST_Request $request ): WP_REST_Response {
+        if ( ! apply_filters( 'storefuse_bridge_stock_alerts_available', false ) ) {
+            return StoreFuse_Bridge_Errors::validation_error( 'Stock alerts are not configured for this store.' );
+        }
 
         if ( $request->get_param( 'website' ) ) {
             return StoreFuse_Bridge_Errors::validation_error( 'Invalid request.' );
@@ -244,7 +247,12 @@ class StoreFuse_Bridge_Module_Products extends StoreFuse_Bridge_Module {
         do_action( 'storefuse_bridge_notify_signup', $email, $product );
 
         return StoreFuse_Bridge_Response::success(
-            [ 'message' => __( 'You will be notified when this product is back in stock.', 'storefuse-bridge' ) ],
+            [
+                'message' => __(
+                    'Signup recorded. Email is sent only when your store\'s back-in-stock integration delivers alerts.',
+                    'storefuse-bridge'
+                ),
+            ],
             'storefuse.notify.v1'
         );
     }
@@ -277,6 +285,11 @@ class StoreFuse_Bridge_Module_Products extends StoreFuse_Bridge_Module {
             'tax_query'      => [ 'relation' => 'AND' ],
             'meta_query'     => [ 'relation' => 'AND' ],
         ];
+
+        if ( ! empty( $params['include'] ) ) {
+            $args['post__in'] = array_slice( array_filter( array_map( 'absint', explode( ',', $params['include'] ) ) ), 0, 100 ) ?: [ 0 ];
+            $args['orderby'] = 'post__in';
+        }
 
         // Meta key for sort
         if ( $orderby_raw === 'price' ) {
@@ -315,7 +328,8 @@ class StoreFuse_Bridge_Module_Products extends StoreFuse_Bridge_Module {
             if ( self::$on_sale_ids_cache === null ) {
                 self::$on_sale_ids_cache = wc_get_product_ids_on_sale();
             }
-            $args['post__in'] = ! empty( self::$on_sale_ids_cache ) ? self::$on_sale_ids_cache : [ 0 ];
+            $sale_ids = ! empty( self::$on_sale_ids_cache ) ? self::$on_sale_ids_cache : [ 0 ];
+            $args['post__in'] = isset( $args['post__in'] ) ? array_values( array_intersect( $args['post__in'], $sale_ids ) ) ?: [ 0 ] : $sale_ids;
         }
 
         // Featured
@@ -409,6 +423,7 @@ class StoreFuse_Bridge_Module_Products extends StoreFuse_Bridge_Module {
         return array_merge(
             StoreFuse_Bridge_Rest_Schema::pagination_query_args( 12, 100 ),
             [
+            'include'   => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
             'category'  => [ 'type' => 'string',  'sanitize_callback' => 'sanitize_title' ],
             'tag'       => [ 'type' => 'string',  'sanitize_callback' => 'sanitize_title' ],
             'orderby'   => [ 'type' => 'string',  'default' => 'date',  'sanitize_callback' => 'sanitize_key' ],

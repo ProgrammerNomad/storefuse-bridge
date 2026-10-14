@@ -53,6 +53,14 @@ class StoreFuse_Bridge_Module_Settings extends StoreFuse_Bridge_Module {
 
         $data = [
             'site'         => $this->build_site_identity(),
+            'app'          => [
+                'primary_color' => StoreFuse_Bridge_Settings::get( 'app_primary_color', '#E85D04' ),
+                'locale' => str_replace( '_', '-', get_locale() ),
+                'privacy_url' => get_privacy_policy_url(),
+                'terms_url' => wc_get_page_permalink( 'terms' ),
+                'support_url' => StoreFuse_Bridge_Settings::get( 'app_support_url', '' ),
+                'deletion_url' => add_query_arg( 'storefuse_account_deletion', '1', home_url( '/' ) ),
+            ],
             'store'        => $this->build_store_config(),
             'header'       => $this->build_header_config(),
             'trust_badges' => $this->build_trust_badges(),
@@ -165,6 +173,7 @@ class StoreFuse_Bridge_Module_Settings extends StoreFuse_Bridge_Module {
         }
 
         return [
+            'default_country'           => WC()->countries->get_base_country(),
             'currency'                  => get_woocommerce_currency(),
             'currency_symbol'           => get_woocommerce_currency_symbol(),
             'currency_position'         => get_option( 'woocommerce_currency_pos', 'left' ),
@@ -385,7 +394,7 @@ class StoreFuse_Bridge_Module_Settings extends StoreFuse_Bridge_Module {
             'heading' => (string) ( $s['homepage_best_sellers_heading'] ?? 'Best Sellers' ),
             'source'  => (string) ( $s['homepage_best_sellers_source'] ?? 'best-selling' ),
             'count'   => (int) ( $s['homepage_best_sellers_count'] ?? 8 ),
-            'ids'     => array_filter( array_map( 'absint', explode( ',', (string) ( $s['homepage_best_sellers_ids'] ?? '' ) ) ) ),
+            'ids'     => array_values( array_filter( array_map( 'absint', explode( ',', (string) ( $s['homepage_best_sellers_ids'] ?? '' ) ) ) ) ),
         ];
     }
 

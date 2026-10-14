@@ -1,3 +1,12 @@
+# 1.1.0 - production-readiness implementation (2026-10-14)
+
+- Cookie-authenticated nonce recovery, IP abuse limits, registration policy and exclusive Bridge CORS.
+- Single-use browser handoff, authoritative checkout locks, durable order recovery and complete shipment validation.
+- Native checkout explicitly supports COD, bank transfer and cheque with standard fields; custom requirements use WooCommerce checkout.
+- Customer account-deletion requests integrate with WordPress privacy tools; content cache flush preserves transaction/security state.
+- Product variation and merchandising contracts, app identity/support settings, shop-manager save capability and searchable product selection.
+- Reproducible deployment and live integration scripts. See `docs/release-1.1.md` for supported scope and validation limits.
+
 # Changelog
 
 All notable changes to StoreFuse Bridge follow [Semantic Versioning](https://semver.org/).

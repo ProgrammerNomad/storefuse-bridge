@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: StoreFuse Bridge API
-  version: 1.0.2
+  version: 1.1.0
   description: |
     Headless WooCommerce REST API. Full shapes: verified-routes.md and api-reference.md.
 servers:
@@ -16,6 +16,41 @@ tags:
   - name: checkout
   - name: account
 paths:
+  /account/deletion-request:
+    get:
+      tags: [account]
+      summary: Authenticated customer's latest erasure request status
+      responses:
+        '200':
+          description: Request status or none; requires login cookie and X-WP-Nonce
+    post:
+      tags: [account]
+      summary: Initiate a confirmed WordPress erasure request for this customer
+      responses:
+        '200':
+          description: Request queued for store administrator; requires login cookie and X-WP-Nonce
+  /checkout/quote:
+    post:
+      tags: [checkout]
+      summary: Validate destination and calculate shipping packages and cart totals
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                billing: {type: object}
+                shipping: {type: object}
+                ship_to_different_address: {type: boolean}
+                shipping_method:
+                  type: array
+                  items: {type: string}
+      responses:
+        '200':
+          description: Packages and authoritative cart; requires X-WC-Nonce and X-WP-Nonce when logged in
+        '422':
+          description: Invalid address
   /status:
     get:
       tags: [catalog]
