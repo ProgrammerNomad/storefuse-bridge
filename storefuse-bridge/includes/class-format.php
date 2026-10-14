@@ -225,6 +225,8 @@ class StoreFuse_Bridge_Format {
             $sale_ends_at = $sale_end_ts->date( DateTime::ATOM );
         }
 
+        $stock = self::product_stock( $product, empty( $variations ) && $product->is_type( 'variable' ) );
+
         return [
             'id'                => (string) $product->get_id(),
             'slug'              => $product->get_slug(),
@@ -238,7 +240,8 @@ class StoreFuse_Bridge_Format {
             'sale_price'        => $product->is_on_sale() ? self::price( $product->get_sale_price() ) : null,
             'on_sale'           => $product->is_on_sale(),
             'sale_ends_at'      => $sale_ends_at,
-            'stock_status'      => $product->get_stock_status(),
+            'stock_status'      => $stock['stock_status'],
+            'is_in_stock'       => $stock['is_in_stock'],
             'stock_quantity'    => $product->get_stock_quantity(),
             'sku'               => $product->get_sku(),
             'type'              => $product->get_type(),
@@ -249,6 +252,39 @@ class StoreFuse_Bridge_Format {
             'variations'        => $variations,
             'average_rating'    => $product->get_average_rating(),
             'rating_count'      => $product->get_rating_count(),
+        ];
+    }
+
+    /**
+     * Canonical in-stock flag and normalized stock_status for cards and summaries.
+     *
+     * @param bool|null $variable_has_no_variations When true, force out of stock for
+     *                                               variable products. When null, uses
+     *                                               {@see WC_Product_Variable::get_available_variations()}.
+     * @return array{ is_in_stock: bool, stock_status: string }
+     */
+    public static function product_stock( WC_Product $product, ?bool $variable_has_no_variations = null ): array {
+        $in_stock     = $product->is_in_stock();
+        $stock_status = $product->get_stock_status();
+
+        if ( $product->is_type( 'variable' ) ) {
+            $no_variations = $variable_has_no_variations;
+            if ( $no_variations === null ) {
+                $no_variations = empty( $product->get_available_variations() );
+            }
+            if ( $no_variations ) {
+                $in_stock     = false;
+                $stock_status = 'outofstock';
+            }
+        } elseif ( ! $in_stock ) {
+            $stock_status = 'outofstock';
+        } elseif ( $stock_status !== 'onbackorder' ) {
+            $stock_status = 'instock';
+        }
+
+        return [
+            'is_in_stock'  => $in_stock,
+            'stock_status' => $stock_status,
         ];
     }
 

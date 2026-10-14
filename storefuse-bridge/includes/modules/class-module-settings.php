@@ -60,6 +60,7 @@ class StoreFuse_Bridge_Module_Settings extends StoreFuse_Bridge_Module {
                 'terms_url' => wc_get_page_permalink( 'terms' ),
                 'support_url' => StoreFuse_Bridge_Settings::get( 'app_support_url', '' ),
                 'deletion_url' => add_query_arg( 'storefuse_account_deletion', '1', home_url( '/' ) ),
+                'ui'          => StoreFuse_Bridge_App_Ui::build(),
             ],
             'store'        => $this->build_store_config(),
             'header'       => $this->build_header_config(),
@@ -322,7 +323,7 @@ class StoreFuse_Bridge_Module_Settings extends StoreFuse_Bridge_Module {
     private function build_homepage(): array {
         $s = StoreFuse_Bridge_Settings::all();
 
-        return [
+        $payload = [
             'announcement_bar' => [
                 'enabled'  => (bool) ( $s['announcement_bar_enabled'] ?? false ),
                 'text'     => (string) ( $s['announcement_bar_text'] ?? '' ),
@@ -348,6 +349,8 @@ class StoreFuse_Bridge_Module_Settings extends StoreFuse_Bridge_Module {
             'new_arrivals'        => $this->build_new_arrivals_section(),
             'promo_banner'        => $this->build_promo_banner_section(),
         ];
+
+        return StoreFuse_Bridge_App_Ui::apply_homepage_layout( $payload );
     }
 
     private function build_hero_image(): ?array {

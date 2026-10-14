@@ -385,19 +385,23 @@ class StoreFuse_Bridge_Module_Products extends StoreFuse_Bridge_Module {
     }
 
     private function product_summary( WC_Product $product ): array {
-        return [
-            'id'             => $product->get_id(),
-            'slug'           => $product->get_slug(),
-            'name'           => $product->get_name(),
-            'href'           => '/product/' . $product->get_slug(),
-            'price'          => StoreFuse_Bridge_Format::price( $product->get_price() ),
-            'regular_price'  => StoreFuse_Bridge_Format::price( $product->get_regular_price() ),
-            'sale_price'     => $product->get_sale_price() ? StoreFuse_Bridge_Format::price( $product->get_sale_price() ) : null,
-            'on_sale'        => $product->is_on_sale(),
-            'thumbnail'      => StoreFuse_Bridge_Format::image( $product->get_image_id() ),
-            'average_rating' => (float) $product->get_average_rating(),
-            'review_count'   => $product->get_review_count(),
-        ];
+        return array_merge(
+            [
+                'id'             => $product->get_id(),
+                'slug'           => $product->get_slug(),
+                'name'           => $product->get_name(),
+                'href'           => '/product/' . $product->get_slug(),
+                'type'           => $product->get_type(),
+                'price'          => StoreFuse_Bridge_Format::price( $product->get_price() ),
+                'regular_price'  => StoreFuse_Bridge_Format::price( $product->get_regular_price() ),
+                'sale_price'     => $product->get_sale_price() ? StoreFuse_Bridge_Format::price( $product->get_sale_price() ) : null,
+                'on_sale'        => $product->is_on_sale(),
+                'thumbnail'      => StoreFuse_Bridge_Format::image( $product->get_image_id() ),
+                'average_rating' => (float) $product->get_average_rating(),
+                'review_count'   => $product->get_review_count(),
+            ],
+            StoreFuse_Bridge_Format::product_stock( $product )
+        );
     }
 
     private function build_product_breadcrumb( WC_Product $product ): array {

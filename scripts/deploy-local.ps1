@@ -135,6 +135,9 @@ $mismatches = @()
 foreach ($file in Get-ChildItem -LiteralPath $source -Recurse -File) {
     if ($file.FullName -match ' - Copy\\') { continue }
     $relative = Get-RelativePath -Base $source -Target $file.FullName
+    if ($relative -eq 'build-info.php') {
+        continue
+    }
     $installed = Join-Path $destination $relative
     if (-not (Test-Path -LiteralPath $installed)) {
         $mismatches += "$relative (missing)"

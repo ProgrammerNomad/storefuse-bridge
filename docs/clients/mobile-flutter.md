@@ -78,6 +78,45 @@ Payment SDK integration is **out of Bridge scope** - Bridge returns order result
 
 ---
 
+## Screen customization (merchant admin → mobile UI)
+
+The reference Flutter app reads **`GET /settings` → `data.app.ui`** (schema **`storefuse.app-ui.v1`**) at bootstrap. If `ui` is missing, the app uses built-in defaults (catalog grid, 2 columns).
+
+| Mobile screen | WordPress admin | API / notes |
+|---------------|-----------------|-------------|
+| **Branding / splash** | StoreFuse → General (`app_primary_color`, support URL) | `settings.app.primary_color`, `settings.site` (name, logo) |
+| **Bottom tabs** | StoreFuse → Advanced (module toggles) | `GET /status` → `modules` (hide Shop, Search, Cart, Account) |
+| **Drawer links** | StoreFuse → Navigation (assign `storefuse-header` menu) | `settings.navigation.main` |
+| **Announcement bar** | General or Homepage content | `settings.header` + `GET /homepage` → `announcement_bar` |
+| **Home** | Homepage (hero, categories, product rows, promo) + **Mobile app** (section order / hide) | `GET /homepage` + `app.ui.home.section_order` / `hidden` |
+| **Categories list** | WooCommerce categories | Products API; list layout still app default |
+| **Category products** | **Mobile app** → catalog layout / columns | `app.ui.catalog` + `screens.category` |
+| **Shop** | **Mobile app** (layout, title, product card toggles) | `app.ui.screens.shop` |
+| **Search** | **Mobile app** (optional search layout override) | `app.ui.screens.search` |
+| **Product detail** | **Mobile app** (SKU, sticky ATC, related count) | Product JSON + `app.ui.screens.product`; related from `related_products` on single product |
+| **Cart** | **Mobile app** (coupon, free-shipping bar, empty CTA) | Cart API + `settings.store.free_shipping_threshold` + `app.ui.screens.cart` |
+| **Checkout** | StoreFuse → Checkout (redirect vs headless) | `GET /checkout/config`, `features.headless_checkout`, `app.ui.screens.checkout.redirect_button_label` |
+| **Account / wishlist / orders** | Advanced module toggles | `GET /status` → `modules`, `features.registration` |
+| **Legal / about** | General + WP privacy page | `settings.app.privacy_url`, `terms_url`, `support_url` |
+
+Agencies can extend JSON without waiting for new admin fields via the **`storefuse_bridge_settings_response`** filter ([extensions.md](../extensions.md)).
+
+### Minimal `app.ui` example
+
+```json
+{
+  "schema": "storefuse.app-ui.v1",
+  "catalog": { "layout": "grid", "columns": 2, "show_stock_badge": true },
+  "screens": {
+    "shop": { "title": "Products", "layout": "grid" },
+    "product": { "show_sku": true, "sticky_add_to_cart": false, "related_count": 6 },
+    "cart": { "show_coupon": true, "show_free_shipping_bar": true, "empty_cta_href": "/products" }
+  }
+}
+```
+
+---
+
 ## Password reset
 
 Reset emails use `storefront_url` + `storefront_reset_path` from WP settings, or `storefuse_bridge_password_reset_url` for app deep links. Handle query params `key` and `login` in the app; complete reset via `POST /auth/reset-password`.
@@ -102,6 +141,31 @@ Push tokens: debug Flutter builds may call `POST /account/device-token` with a p
 | `pincode_serviceability` | `false` until filter | Pincode checker hidden on product detail |
 
 Device tokens: after login, the app may call `POST /account/device-token` when push is enabled and `REGISTER_DEVICE_TOKEN` is set at compile time. Delivery still requires merchant FCM/APNs wiring via a companion plugin.
+
+---
+
+## Merchant customization matrix (screens → admin → API)
+
+Use this when explaining what store owners can change **without** shipping a new app build. Presentation flags live in **`GET /settings` → `data.app.ui`** (schema `storefuse.app-ui.v1`). Content blocks for Home still come from **`GET /homepage`**.
+
+| App screen | WordPress admin (StoreFuse) | API the app reads |
+|------------|----------------------------|-------------------|
+| **Splash / theme** | **General** - app primary colour, support URL; WP **Customizer** - site name, logo | `GET /settings` → `app.primary_color`, `site.*`, `app.support_url`, legal URLs |
+| **Bottom tabs** | **Advanced** - module toggles (hide Shop, Cart, etc.) | `GET /status` → `modules` |
+| **Drawer / header links** | **Navigation** - `storefuse-header` menu; **General** - announcement bar | `GET /settings` → `navigation.main`, `header.*` |
+| **Home** | **Homepage** - hero, categories, product rows, promo; **Mobile app** - section order / hide sections | `GET /homepage` (ordered/filtered); layout hints also in `app.ui.screens.home` |
+| **Shop (`/products`)** | **Mobile app** - catalog layout, columns, stock badge, shop title | `GET /settings` → `app.ui.catalog`, `app.ui.screens.shop` |
+| **Search** | **Mobile app** - optional search layout override | `app.ui.screens.search` (falls back to catalog) |
+| **Category products** | **Mobile app** - same catalog defaults as Shop | `app.ui.catalog` |
+| **Product detail (PDP)** | **Mobile app** - SKU, sticky ATC, related count | `app.ui.screens.product`; product JSON from `GET /products/{slug}` (`is_in_stock`, `stock_status`) |
+| **Cart** | **Mobile app** - coupon, free-shipping bar, empty CTA; **General** - free shipping threshold label/amount | `app.ui.screens.cart`, `store.free_shipping_threshold*` |
+| **Checkout** | **Checkout** - redirect vs headless, button label | `GET /checkout/config`, `GET /status` → `features.headless_checkout` |
+| **Account / orders / wishlist** | **Advanced** - module toggles | `GET /status` → `modules` |
+| **About / legal** | **General** - support URL; WP privacy/terms pages | `GET /settings` → `app.privacy_url`, `app.terms_url`, `app.support_url` |
+
+**Defaults:** If `app.ui` is missing (older Bridge), the reference app uses built-in layout defaults (2-column product grid for catalog screens after Phase 0).
+
+**Extensions:** Agencies can inject UI keys before admin fields exist via filter `storefuse_bridge_settings_response` ([extensions.md](../extensions.md)).
 
 ---
 

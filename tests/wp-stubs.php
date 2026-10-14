@@ -296,3 +296,80 @@ if ( ! function_exists( 'do_action' ) ) {
         unset( $hook, $args );
     }
 }
+
+if ( ! class_exists( 'WC_Product' ) ) {
+    class WC_Product {
+    }
+}
+
+if ( ! function_exists( 'get_permalink' ) ) {
+    function get_permalink( int $post_id ): string {
+        return 'https://shop.test/product/' . $post_id;
+    }
+}
+
+if ( ! function_exists( 'get_the_terms' ) ) {
+    function get_the_terms( int $post_id, string $taxonomy ) {
+        return false;
+    }
+}
+
+if ( ! function_exists( 'wc_attribute_label' ) ) {
+    function wc_attribute_label( string $name ): string {
+        return $name;
+    }
+}
+
+if ( ! function_exists( 'wc_price' ) ) {
+    function wc_price( $price ): string {
+        return '$' . $price;
+    }
+}
+
+if ( ! function_exists( 'get_woocommerce_currency' ) ) {
+    function get_woocommerce_currency(): string {
+        return 'USD';
+    }
+}
+
+if ( ! function_exists( 'get_woocommerce_currency_symbol' ) ) {
+    function get_woocommerce_currency_symbol(): string {
+        return '$';
+    }
+}
+
+if ( ! function_exists( 'wc_placeholder_img_src' ) ) {
+    function wc_placeholder_img_src( string $size = '' ): string {
+        return 'https://shop.test/placeholder.jpg';
+    }
+}
+
+if ( ! function_exists( 'wp_get_attachment_image_url' ) ) {
+    function wp_get_attachment_image_url( int $attachment_id, string $size = 'full' ) {
+        return null;
+    }
+}
+
+if ( ! function_exists( 'wp_get_attachment_metadata' ) ) {
+    function wp_get_attachment_metadata( int $attachment_id ) {
+        return [];
+    }
+}
+
+if ( ! function_exists( 'wp_get_attachment_image_srcset' ) ) {
+    function wp_get_attachment_image_srcset( int $attachment_id, string $size = 'full' ) {
+        return false;
+    }
+}
+
+if ( ! function_exists( 'get_post_meta' ) ) {
+    function get_post_meta( int $post_id, string $key, bool $single = false ) {
+        return $single ? '' : [];
+    }
+}
+
+if ( ! function_exists( 'strip_tags' ) ) {
+    function strip_tags( string $string, $allowed_tags = null ): string {
+        return preg_replace( '/<[^>]*>/', '', $string ) ?? $string;
+    }
+}

@@ -86,6 +86,7 @@ class StoreFuse_Bridge_Admin {
         $pages = [
             'storefuse-bridge-general'     => [ __( 'General', 'storefuse-bridge' ), 'page_general' ],
             'storefuse-bridge-homepage'    => [ __( 'Homepage', 'storefuse-bridge' ), 'page_homepage' ],
+            'storefuse-bridge-mobile-app'  => [ __( 'Mobile app', 'storefuse-bridge' ), 'page_mobile_app' ],
             'storefuse-bridge-navigation'  => [ __( 'Navigation', 'storefuse-bridge' ), 'page_navigation' ],
             'storefuse-bridge-social'      => [ __( 'Social & Trust', 'storefuse-bridge' ), 'page_social' ],
             'storefuse-bridge-checkout'    => [ __( 'Checkout', 'storefuse-bridge' ), 'page_checkout' ],
@@ -297,6 +298,8 @@ class StoreFuse_Bridge_Admin {
             $patch['homepage_promo_banner_bg_color'] = sanitize_hex_color( $input['homepage_promo_banner_bg_color'] ) ?: '#1e293b';
         }
 
+        $patch = array_merge( $patch, StoreFuse_Bridge_App_Ui::sanitize_settings_patch( $input ) );
+
         $clean = array_merge( $existing, $patch );
 
         StoreFuse_Bridge_Cache::flush_all();
@@ -436,6 +439,10 @@ class StoreFuse_Bridge_Admin {
 
     public function page_homepage(): void {
         require_once STOREFUSE_BRIDGE_PATH . 'admin/views/page-homepage.php';
+    }
+
+    public function page_mobile_app(): void {
+        require_once STOREFUSE_BRIDGE_PATH . 'admin/views/page-mobile-app.php';
     }
 
     public function page_social(): void {

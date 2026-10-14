@@ -178,6 +178,6 @@ class StoreFuse_Bridge_Settings {
             'homepage_promo_banner_cta_label'  => '',
             'homepage_promo_banner_cta_href'   => '',
             'homepage_promo_banner_bg_color'   => '#1e293b',
-        ];
+        ] + StoreFuse_Bridge_App_Ui::settings_defaults();
     }
 }
