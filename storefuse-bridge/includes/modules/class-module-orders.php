@@ -280,12 +280,19 @@ class StoreFuse_Bridge_Module_Orders extends StoreFuse_Bridge_Module {
             return $order;
         }
 
+        $tracking_number = (string) ( $order->get_meta( '_tracking_number', true ) ?: $order->get_meta( 'tracking_number', true ) );
+        $tracking_url    = (string) ( $order->get_meta( '_tracking_url', true )    ?: $order->get_meta( 'tracking_url', true ) );
+        $carrier         = (string) ( $order->get_meta( '_tracking_provider', true ) ?: $order->get_meta( 'tracking_provider', true ) );
+
         // Tracking data is stored in order meta by shipping plugins (Shipment Tracking, etc.).
         // Expose via a filter so any tracking plugin can hook in and return structured data.
         $tracking = apply_filters( 'storefuse_bridge_order_tracking', [
-            'tracking_number' => $order->get_meta( '_tracking_number', true ) ?: $order->get_meta( 'tracking_number', true ),
-            'tracking_url'    => $order->get_meta( '_tracking_url', true )    ?: $order->get_meta( 'tracking_url', true ),
-            'carrier'         => $order->get_meta( '_tracking_provider', true ) ?: $order->get_meta( 'tracking_provider', true ),
+            'tracking_number' => $tracking_number,
+            'number'          => $tracking_number,
+            'tracking_url'    => $tracking_url,
+            'url'             => $tracking_url,
+            'carrier'         => $carrier,
+            'provider'        => $carrier,
             'shipped_date'    => StoreFuse_Bridge_Format::date(
                 (string) ( $order->get_meta( '_tracking_shipped_date', true ) ?: '' )
             ),

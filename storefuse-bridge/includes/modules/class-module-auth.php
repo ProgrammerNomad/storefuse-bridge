@@ -270,11 +270,9 @@ class StoreFuse_Bridge_Module_Auth extends StoreFuse_Bridge_Module {
      * Requires the user to be logged in.
      */
     public function logout( WP_REST_Request $request ): WP_REST_Response {
-        if ( ! is_user_logged_in() ) {
-            return StoreFuse_Bridge_Errors::not_authenticated();
+        if ( is_user_logged_in() ) {
+            wp_logout();
         }
-
-        wp_logout();
 
         $response = $this->success( [ 'logged_out' => true ], 'storefuse.auth.v1' );
 

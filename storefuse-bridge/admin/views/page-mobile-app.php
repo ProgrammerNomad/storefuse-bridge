@@ -16,6 +16,47 @@ $order  = StoreFuse_Bridge_App_Ui::parse_home_section_order( $s['app_ui_home_sec
         <input type="hidden" name="storefuse_bridge_settings[_sfb_save_app_ui]" value="1" />
 
         <div class="sfb-card">
+            <h2><?php esc_html_e( 'Theming & Appearance', 'storefuse-bridge' ); ?></h2>
+            <table class="form-table">
+                <tr>
+                    <th><?php esc_html_e( 'Secondary / Accent color', 'storefuse-bridge' ); ?></th>
+                    <td>
+                        <input type="text" name="storefuse_bridge_settings[app_ui_theme_secondary_color]" value="<?php echo esc_attr( $s['app_ui_theme_secondary_color'] ?? '#0F172A' ); ?>" class="sfb-color-picker" />
+                    </td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Theme mode', 'storefuse-bridge' ); ?></th>
+                    <td>
+                        <select name="storefuse_bridge_settings[app_ui_theme_mode]">
+                            <option value="system" <?php selected( $s['app_ui_theme_mode'] ?? 'system', 'system' ); ?>><?php esc_html_e( 'System auto-detect', 'storefuse-bridge' ); ?></option>
+                            <option value="light" <?php selected( $s['app_ui_theme_mode'] ?? 'system', 'light' ); ?>><?php esc_html_e( 'Light only', 'storefuse-bridge' ); ?></option>
+                            <option value="dark" <?php selected( $s['app_ui_theme_mode'] ?? 'system', 'dark' ); ?>><?php esc_html_e( 'Dark only', 'storefuse-bridge' ); ?></option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Font family', 'storefuse-bridge' ); ?></th>
+                    <td>
+                        <input type="text" name="storefuse_bridge_settings[app_ui_theme_font_family]" value="<?php echo esc_attr( $s['app_ui_theme_font_family'] ?? 'Default' ); ?>" class="regular-text" placeholder="Default, Inter, Roboto..." />
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="sfb-card">
+            <h2><?php esc_html_e( 'Bottom Navigation Builder', 'storefuse-bridge' ); ?></h2>
+            <table class="form-table">
+                <tr>
+                    <th><?php esc_html_e( 'Active tabs & order', 'storefuse-bridge' ); ?></th>
+                    <td>
+                        <input type="text" name="storefuse_bridge_settings[app_ui_nav_tabs]" value="<?php echo esc_attr( $s['app_ui_nav_tabs'] ?? 'home,shop,search,cart,account' ); ?>" class="large-text" />
+                        <p class="description"><?php esc_html_e( 'Comma-separated list of tabs. Available: home, shop, search, cart, account, wishlist', 'storefuse-bridge' ); ?></p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="sfb-card">
             <h2><?php esc_html_e( 'Catalog (Shop, Search, Category)', 'storefuse-bridge' ); ?></h2>
             <table class="form-table">
                 <tr>
@@ -65,13 +106,35 @@ $order  = StoreFuse_Bridge_App_Ui::parse_home_section_order( $s['app_ui_home_sec
         </div>
 
         <div class="sfb-card">
+            <h2><?php esc_html_e( 'Search Experience', 'storefuse-bridge' ); ?></h2>
+            <table class="form-table">
+                <tr>
+                    <th><?php esc_html_e( 'Search placeholder', 'storefuse-bridge' ); ?></th>
+                    <td>
+                        <input type="text" name="storefuse_bridge_settings[app_ui_search_placeholder]" value="<?php echo esc_attr( $s['app_ui_search_placeholder'] ?? 'Search products...' ); ?>" class="regular-text" />
+                    </td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Trending search terms', 'storefuse-bridge' ); ?></th>
+                    <td>
+                        <input type="text" name="storefuse_bridge_settings[app_ui_search_trending_terms]" value="<?php echo esc_attr( $s['app_ui_search_trending_terms'] ?? '' ); ?>" class="large-text" placeholder="Sneakers, Summer Dress, Hoodie" />
+                        <p class="description"><?php esc_html_e( 'Comma-separated terms displayed as quick suggestion chips.', 'storefuse-bridge' ); ?></p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="sfb-card">
             <h2><?php esc_html_e( 'Product detail', 'storefuse-bridge' ); ?></h2>
             <table class="form-table">
                 <tr>
                     <th><?php esc_html_e( 'Options', 'storefuse-bridge' ); ?></th>
                     <td>
                         <label><input type="checkbox" name="storefuse_bridge_settings[app_ui_product_show_sku]" value="1" <?php checked( ! empty( $s['app_ui_product_show_sku'] ) ); ?> /> <?php esc_html_e( 'Show SKU', 'storefuse-bridge' ); ?></label><br>
-                        <label><input type="checkbox" name="storefuse_bridge_settings[app_ui_product_sticky_add_to_cart]" value="1" <?php checked( ! empty( $s['app_ui_product_sticky_add_to_cart'] ) ); ?> /> <?php esc_html_e( 'Sticky add to cart bar', 'storefuse-bridge' ); ?></label>
+                        <label><input type="checkbox" name="storefuse_bridge_settings[app_ui_product_sticky_add_to_cart]" value="1" <?php checked( ! empty( $s['app_ui_product_sticky_add_to_cart'] ) ); ?> /> <?php esc_html_e( 'Sticky add to cart bar', 'storefuse-bridge' ); ?></label><br>
+                        <label><input type="checkbox" name="storefuse_bridge_settings[app_ui_product_show_reviews]" value="1" <?php checked( ! empty( $s['app_ui_product_show_reviews'] ?? true ) ); ?> /> <?php esc_html_e( 'Show customer reviews', 'storefuse-bridge' ); ?></label><br>
+                        <label><input type="checkbox" name="storefuse_bridge_settings[app_ui_product_show_share]" value="1" <?php checked( ! empty( $s['app_ui_product_show_share'] ?? true ) ); ?> /> <?php esc_html_e( 'Show share button', 'storefuse-bridge' ); ?></label><br>
+                        <label><input type="checkbox" name="storefuse_bridge_settings[app_ui_product_show_wishlist]" value="1" <?php checked( ! empty( $s['app_ui_product_show_wishlist'] ?? true ) ); ?> /> <?php esc_html_e( 'Show wishlist button', 'storefuse-bridge' ); ?></label>
                     </td>
                 </tr>
                 <tr>
@@ -84,13 +147,20 @@ $order  = StoreFuse_Bridge_App_Ui::parse_home_section_order( $s['app_ui_home_sec
         </div>
 
         <div class="sfb-card">
-            <h2><?php esc_html_e( 'Cart', 'storefuse-bridge' ); ?></h2>
+            <h2><?php esc_html_e( 'Cart & Checkout Experience', 'storefuse-bridge' ); ?></h2>
             <table class="form-table">
                 <tr>
-                    <th><?php esc_html_e( 'Options', 'storefuse-bridge' ); ?></th>
+                    <th><?php esc_html_e( 'Cart options', 'storefuse-bridge' ); ?></th>
                     <td>
                         <label><input type="checkbox" name="storefuse_bridge_settings[app_ui_cart_show_coupon]" value="1" <?php checked( ! empty( $s['app_ui_cart_show_coupon'] ) ); ?> /> <?php esc_html_e( 'Show coupon field', 'storefuse-bridge' ); ?></label><br>
-                        <label><input type="checkbox" name="storefuse_bridge_settings[app_ui_cart_show_free_shipping_bar]" value="1" <?php checked( ! empty( $s['app_ui_cart_show_free_shipping_bar'] ) ); ?> /> <?php esc_html_e( 'Show free shipping progress (uses store.free_shipping_threshold)', 'storefuse-bridge' ); ?></label>
+                        <label><input type="checkbox" name="storefuse_bridge_settings[app_ui_cart_show_free_shipping_bar]" value="1" <?php checked( ! empty( $s['app_ui_cart_show_free_shipping_bar'] ) ); ?> /> <?php esc_html_e( 'Show free shipping progress (uses store.free_shipping_threshold)', 'storefuse-bridge' ); ?></label><br>
+                        <label><input type="checkbox" name="storefuse_bridge_settings[app_ui_cart_show_guest_prompt]" value="1" <?php checked( ! empty( $s['app_ui_cart_show_guest_prompt'] ?? true ) ); ?> /> <?php esc_html_e( 'Show guest login prompt banner in cart', 'storefuse-bridge' ); ?></label>
+                    </td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Checkout options', 'storefuse-bridge' ); ?></th>
+                    <td>
+                        <label><input type="checkbox" name="storefuse_bridge_settings[app_ui_checkout_show_guest_prompt]" value="1" <?php checked( ! empty( $s['app_ui_checkout_show_guest_prompt'] ?? true ) ); ?> /> <?php esc_html_e( 'Show guest login prompt banner on checkout', 'storefuse-bridge' ); ?></label>
                     </td>
                 </tr>
                 <tr>

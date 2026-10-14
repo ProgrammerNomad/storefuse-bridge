@@ -229,9 +229,23 @@ class StoreFuse_Bridge_Module_Checkout extends StoreFuse_Bridge_Module {
             ];
         }
 
+        $all_methods = [];
+        foreach ( $result as $pkg ) {
+            if ( ! empty( $pkg['methods'] ) ) {
+                $all_methods = array_merge( $all_methods, $pkg['methods'] );
+            }
+        }
+
+        $payload = [
+            'quote_token' => WC()->cart->get_cart_hash(),
+            'packages'    => $result,
+            'methods'     => $all_methods,
+            'cart'        => ( new StoreFuse_Bridge_Module_Cart() )->get_cart( $request )->get_data()['data'],
+        ];
+
         return StoreFuse_Bridge_Response::with_no_store(
             $this->success(
-                apply_filters( 'storefuse_bridge_shipping_packages', [ 'quote_token' => WC()->cart->get_cart_hash(), 'packages' => $result, 'cart' => ( new StoreFuse_Bridge_Module_Cart() )->get_cart( $request )->get_data()['data'] ] ),
+                apply_filters( 'storefuse_bridge_shipping_packages', $payload ),
                 'storefuse.checkout.v1'
             )
         );

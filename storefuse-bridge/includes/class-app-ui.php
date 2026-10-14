@@ -32,12 +32,23 @@ class StoreFuse_Bridge_App_Ui {
             'app_ui_catalog_show_stock_badge'    => true,
             'app_ui_shop_title'                  => 'Products',
             'app_ui_search_layout'               => '',
+            'app_ui_theme_secondary_color'       => '#0F172A',
+            'app_ui_theme_mode'                  => 'system',
+            'app_ui_theme_font_family'           => 'Default',
             'app_ui_product_show_sku'            => true,
             'app_ui_product_sticky_add_to_cart'  => true,
             'app_ui_product_related_count'       => 4,
+            'app_ui_product_show_reviews'        => true,
+            'app_ui_product_show_share'          => true,
+            'app_ui_product_show_wishlist'       => true,
+            'app_ui_checkout_show_guest_prompt'  => true,
             'app_ui_cart_show_coupon'            => true,
             'app_ui_cart_show_free_shipping_bar' => true,
+            'app_ui_cart_show_guest_prompt'      => true,
             'app_ui_cart_empty_cta_href'         => '/shop',
+            'app_ui_search_placeholder'          => 'Search products...',
+            'app_ui_search_trending_terms'       => '',
+            'app_ui_nav_tabs'                    => 'home,shop,search,cart,account',
             'app_ui_home_section_order'          => self::HOME_SECTION_IDS,
             'app_ui_home_hide_sections'          => [],
         ];
@@ -67,25 +78,56 @@ class StoreFuse_Bridge_App_Ui {
             $shop_title = 'Products';
         }
 
+        $secondary_color = sanitize_hex_color( (string) self::get( $s, 'app_ui_theme_secondary_color', '#0F172A' ) ) ?: '#0F172A';
+        $theme_mode      = in_array( (string) self::get( $s, 'app_ui_theme_mode', 'system' ), [ 'system', 'light', 'dark' ], true )
+            ? (string) self::get( $s, 'app_ui_theme_mode', 'system' )
+            : 'system';
+        $font_family     = sanitize_text_field( (string) self::get( $s, 'app_ui_theme_font_family', 'Default' ) );
+
+        $search_placeholder = sanitize_text_field( (string) self::get( $s, 'app_ui_search_placeholder', 'Search products...' ) );
+        $trending_terms_raw = (string) self::get( $s, 'app_ui_search_trending_terms', '' );
+        $trending_terms     = array_values( array_filter( array_map( 'trim', explode( ',', $trending_terms_raw ) ) ) );
+
+        $nav_tabs_raw = (string) self::get( $s, 'app_ui_nav_tabs', 'home,shop,search,cart,account' );
+        $nav_tabs     = array_values( array_filter( array_map( 'trim', explode( ',', $nav_tabs_raw ) ) ) );
+
         return [
-            'schema'  => self::SCHEMA,
-            'catalog' => $catalog,
-            'screens' => [
-                'shop' => [
+            'schema'     => self::SCHEMA,
+            'theme'      => [
+                'secondary_color' => $secondary_color,
+                'mode'            => $theme_mode,
+                'font_family'     => $font_family,
+            ],
+            'navigation' => [
+                'tabs' => $nav_tabs,
+            ],
+            'catalog'    => $catalog,
+            'screens'    => [
+                'shop'     => [
                     'title' => $shop_title,
                 ],
-                'search'  => $search,
-                'product' => [
+                'search'   => array_merge( $search, [
+                    'placeholder'    => $search_placeholder,
+                    'trending_terms' => $trending_terms,
+                ] ),
+                'product'  => [
                     'show_sku'           => ! empty( self::get( $s, 'app_ui_product_show_sku', true ) ),
                     'sticky_add_to_cart' => ! empty( self::get( $s, 'app_ui_product_sticky_add_to_cart', true ) ),
                     'related_count'      => self::sanitize_related_count( self::get( $s, 'app_ui_product_related_count', 4 ) ),
+                    'show_reviews'       => ! empty( self::get( $s, 'app_ui_product_show_reviews', true ) ),
+                    'show_share'         => ! empty( self::get( $s, 'app_ui_product_show_share', true ) ),
+                    'show_wishlist'      => ! empty( self::get( $s, 'app_ui_product_show_wishlist', true ) ),
                 ],
-                'cart' => [
+                'checkout' => [
+                    'show_guest_prompt' => ! empty( self::get( $s, 'app_ui_checkout_show_guest_prompt', true ) ),
+                ],
+                'cart'     => [
                     'show_coupon'            => ! empty( self::get( $s, 'app_ui_cart_show_coupon', true ) ),
                     'show_free_shipping_bar' => ! empty( self::get( $s, 'app_ui_cart_show_free_shipping_bar', true ) ),
+                    'show_guest_prompt'      => ! empty( self::get( $s, 'app_ui_cart_show_guest_prompt', true ) ),
                     'empty_cta_href'         => self::sanitize_href( (string) self::get( $s, 'app_ui_cart_empty_cta_href', '/shop' ), '/shop' ),
                 ],
-                'home' => self::home_screen_config( $s ),
+                'home'     => self::home_screen_config( $s ),
             ],
         ];
     }
@@ -130,8 +172,13 @@ class StoreFuse_Bridge_App_Ui {
                     'app_ui_catalog_show_stock_badge',
                     'app_ui_product_show_sku',
                     'app_ui_product_sticky_add_to_cart',
+                    'app_ui_product_show_reviews',
+                    'app_ui_product_show_share',
+                    'app_ui_product_show_wishlist',
+                    'app_ui_checkout_show_guest_prompt',
                     'app_ui_cart_show_coupon',
                     'app_ui_cart_show_free_shipping_bar',
+                    'app_ui_cart_show_guest_prompt',
                 ] as $bool_key
             ) {
                 $patch[ $bool_key ] = ! empty( $input[ $bool_key ] );
@@ -175,8 +222,24 @@ class StoreFuse_Bridge_App_Ui {
         if ( array_key_exists( 'app_ui_home_section_order', $input ) ) {
             $patch['app_ui_home_section_order'] = self::parse_home_section_order( $input['app_ui_home_section_order'] );
         }
-        if ( array_key_exists( 'app_ui_home_hide_sections', $input ) ) {
-            $patch['app_ui_home_hide_sections'] = self::parse_home_hide_sections( $input['app_ui_home_hide_sections'] );
+        if ( array_key_exists( 'app_ui_theme_secondary_color', $input ) ) {
+            $patch['app_ui_theme_secondary_color'] = sanitize_hex_color( (string) $input['app_ui_theme_secondary_color'] ) ?: '#0F172A';
+        }
+        if ( array_key_exists( 'app_ui_theme_mode', $input ) ) {
+            $mode = sanitize_key( (string) $input['app_ui_theme_mode'] );
+            $patch['app_ui_theme_mode'] = in_array( $mode, [ 'system', 'light', 'dark' ], true ) ? $mode : 'system';
+        }
+        if ( array_key_exists( 'app_ui_theme_font_family', $input ) ) {
+            $patch['app_ui_theme_font_family'] = sanitize_text_field( (string) $input['app_ui_theme_font_family'] );
+        }
+        if ( array_key_exists( 'app_ui_search_placeholder', $input ) ) {
+            $patch['app_ui_search_placeholder'] = sanitize_text_field( (string) $input['app_ui_search_placeholder'] );
+        }
+        if ( array_key_exists( 'app_ui_search_trending_terms', $input ) ) {
+            $patch['app_ui_search_trending_terms'] = sanitize_text_field( (string) $input['app_ui_search_trending_terms'] );
+        }
+        if ( array_key_exists( 'app_ui_nav_tabs', $input ) ) {
+            $patch['app_ui_nav_tabs'] = sanitize_text_field( (string) $input['app_ui_nav_tabs'] );
         }
 
         return $patch;
