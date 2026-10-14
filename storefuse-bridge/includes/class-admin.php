@@ -383,11 +383,16 @@ class StoreFuse_Bridge_Admin {
             return;
         }
 
+        $admin_css_path    = STOREFUSE_BRIDGE_PATH . 'assets/admin.css';
+        $admin_js_path     = STOREFUSE_BRIDGE_PATH . 'assets/admin.js';
+        $admin_css_version = file_exists( $admin_css_path ) ? (string) filemtime( $admin_css_path ) : STOREFUSE_BRIDGE_VERSION;
+        $admin_js_version  = file_exists( $admin_js_path ) ? (string) filemtime( $admin_js_path ) : STOREFUSE_BRIDGE_VERSION;
+
         wp_enqueue_style(
             'storefuse-bridge-admin',
             STOREFUSE_BRIDGE_URL . 'assets/admin.css',
             [],
-            STOREFUSE_BRIDGE_VERSION
+            $admin_css_version
         );
 
         wp_enqueue_media();
@@ -398,7 +403,7 @@ class StoreFuse_Bridge_Admin {
             'storefuse-bridge-admin',
             STOREFUSE_BRIDGE_URL . 'assets/admin.js',
             [ 'jquery', 'wp-color-picker', 'media-upload' ],
-            STOREFUSE_BRIDGE_VERSION,
+            $admin_js_version,
             true
         );
 

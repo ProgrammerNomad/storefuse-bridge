@@ -2,65 +2,35 @@
 
 ## Purpose
 
-Operations overview for shop managers: setup readiness, API base URL, module status, WC feature flags, cache flush, documentation links.
+Give store managers a concise view of launch readiness, the StoreFuse API endpoint, enabled modules, cache controls, and WooCommerce compatibility. The dashboard is an overview; settings continue to be managed on their dedicated screens.
 
-## Menu
+## Menu and access
 
 | | |
 |--|--|
-| **Current slug** | `storefuse-bridge` |
+| **Slug** | `storefuse-bridge` |
 | **View** | `admin/views/page-dashboard.php` |
-| **v2 slug** | `storefuse-bridge` (unchanged) |
+| **Capability** | `StoreFuse_Bridge_Admin::settings_capability()` |
 | **Saves settings** | No |
 
-## v2 sidebar visibility
+## Dashboard sections
 
-Visible for all `primary_client` values.
+1. **Header** - Plugin version, active primary client, and a link to change the client in Setup.
+2. **Overview cards** - Required readiness count, API endpoint check state, enabled module count, and the number of required checks needing attention. Counts are computed from current WordPress, WooCommerce, and Bridge data. The API endpoint starts as **Not checked**; a successful `/status` request changes it to **Available**. This verifies the endpoint from the current admin browser and does not claim that a Flutter or Next.js client is connected.
+3. **Store setup** - Applicable required checks appear as a short checklist with a direct **Fix** link when an item needs attention. Recommended, optional, informational, and not-applicable checks are available in a collapsed secondary list. The primary action opens the first required item needing attention; when all required checks are clear, it opens Setup.
+4. **API diagnostics** - Copy the REST API base URL, test or open `/status`, and open documentation.
+5. **Cache management** - Targeted flush buttons and Flush all are available under **Manage cache**. Flush all keeps its confirmation prompt. The last manual flush time and group are shown when recorded.
+6. **Module status** - A compact enabled/total and disabled count links to the full Modules screen.
+7. **WooCommerce compatibility** - Headless checkout, HPOS, and Store API availability appear in a collapsed details section.
 
-## Page layout (sections)
+## Readiness behavior
 
-1. **H1** - StoreFuse Bridge + version badge
-2. **Setup steps nav** - Buttons: Connect app (storefront), Store identity (general), Merchandising (homepage), Checkout, Diagnostics (api)
-3. **Setup readiness** - Table of OK/Todo items (see non-settings UI)
-4. **API base URL** - Copy + Test `/status`
-5. **Modules** - Read-only table; link to Advanced
-6. **Features** - headless_checkout, HPOS, store_api from WC compat
-7. **Cache** - Flush all + link to API & Tools
-8. **Documentation** - GitHub docs, staging smoke
-9. **Settings quick links** - General, Homepage, Storefront, API
+- Only applicable required checks affect the readiness count and **Attention needed** metric.
+- Product, checkout, shipping, webhook, and cross-origin CORS checks use their current store/module conditions.
+- Bridge navigation menus are an optional recommendation for Next.js storefronts because some storefronts use custom navigation. Flutter and Other clients do not receive a navigation launch blocker from an unset Bridge menu.
+- Privacy policy and HTTPS remain recommendations, not technical launch blockers.
+- Client mode changes guidance and the relevant readiness context. It does not disable API routes or alter saved settings.
 
-## Fields
+## Operations and verification
 
-None. No `options.php` form on this page.
-
-## Non-settings UI
-
-| Item | Behaviour |
-|------|-----------|
-| Readiness: products published | Link to products list |
-| Payment method enabled | WC → Payments |
-| Delivery zones | WC → Shipping |
-| Privacy policy | options-privacy.php |
-| Header/footer menu assigned | nav-menus.php |
-| Storefront URL configured | storefront page |
-| HTTPS recommended | informational |
-| CORS origins when external storefront | api page |
-| Primary client selected | storefront page; OK when not `other` |
-
-## JavaScript
-
-| Control | Action |
-|---------|--------|
-| `#sfb-flush-cache` | AJAX flush group `all` (confirm dialog) |
-| `.sfb-copy-btn` | Clipboard copy API URL |
-
-## v2 deltas
-
-- Client badge + link to Setup
-- Treat `other` as a valid client mode; do not mark it incomplete just because it is the default
-- Conditional readiness rows (hide nav/CORS items for Flutter where appropriate)
-- Show incomplete setup guidance based on missing configuration, not on the client mode alone
-- Move **targeted cache groups** from API & Tools here (full cache section)
-- Update quick links to new page names (Branding, Setup, Modules)
-
-See [../../refactor-v2/target-sidebar.md](../../refactor-v2/target-sidebar.md).
+The page is not a settings form and does not write the options array. Cache actions retain the existing AJAX endpoints, nonce, capability check, and confirmation behavior. API status checks call the existing `GET /storefuse/v1/status` endpoint. No database migration or REST contract change is part of this dashboard update.

@@ -83,13 +83,16 @@
     $(document).on('click', '#sfb-check-connection', function () {
         var $btn = $(this);
         var $result = $('#sfb-connection-health');
+        var $dashboardState = $('#sfb-dashboard-api-state');
         $btn.prop('disabled', true);
         $result.text('Checking the StoreFuse status endpoint…');
         $.getJSON(sfbAdmin.apiBase + '/status').done(function (response) {
             var data = response.data || {};
-            $result.css('color', '#008a20').text('Connected. StoreFuse status: ' + (data.status || 'available') + '.');
+            $result.css('color', '#008a20').text('API endpoint responded. StoreFuse status: ' + (data.status || 'available') + '.');
+            $dashboardState.text($dashboardState.data('available') || 'Available').attr('data-state', 'available');
         }).fail(function (xhr) {
             $result.css('color', '#b32d2e').text('Connection check failed (HTTP ' + (xhr.status || 'error') + ').');
+            $dashboardState.text($dashboardState.data('unavailable') || 'Unavailable').attr('data-state', 'error');
         }).always(function () {
             $btn.prop('disabled', false);
         });
