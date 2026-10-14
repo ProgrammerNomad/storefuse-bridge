@@ -24,7 +24,7 @@ After Bridge updates, re-test critical filters (product, cart, checkout) on stag
 
 ---
 
-See [1.1 capability and module registry contracts](release-1.1.md) before enabling optional features.
+See the [Bridge 1.1 capability and module-filter contract](release-1.1.md) before enabling optional features.
 
 ## Filters (response and data shaping)
 
@@ -129,9 +129,11 @@ add_action( 'storefuse_bridge_guest_cart_merged', function ( int $user_id, array
 
 ---
 
-## v0.2 module registration
+## Companion module instances (Bridge 1.1)
 
-Not available in v0.1.0. See [extension-api-v0.2.md](extension-api-v0.2.md) for the planned `storefuse_bridge_modules` filter and companion module contract.
+Bridge applies the `storefuse_bridge_modules` filter to its module-instance list during initialization. A companion plugin can add instances of classes extending `StoreFuse_Bridge_Module`; see the [Bridge 1.1 integration contract](release-1.1.md) for the current runtime hook. This filter is not an installed-plugin registry and does not add companion-module controls to the wp-admin Modules page.
+
+The separate [v0.2 specification](extension-api-v0.2.md) describes proposed discovery and admin-registration features. Treat those features as proposals unless they are confirmed in the current source.
 
 ---
 

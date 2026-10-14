@@ -1,10 +1,10 @@
-> Historical proposal. Bridge 1.1 ships an instance-list module filter, not the descriptor registry proposed below. See [the current extension contract](release-1.1.md).
+> Historical proposal. Bridge 1.1 applies an instance-list module filter, not the descriptor registry and admin settings UI proposed below. See [the current extension contract](release-1.1.md).
 
-# Extension API v0.2 (specification only)
+# Extension API v0.2 (proposal)
 
-**Status:** Document only - no v0.2 module registration code ships in Bridge 0.1.0.
+**Status:** The current plugin applies the `storefuse_bridge_modules` filter during module initialization. This document describes additional discovery and admin-registration features that are not implemented. Treat each behavior below as a proposal unless confirmed in the current source.
 
-This spec defines how companion plugins will register additional Bridge modules without patching core.
+This proposal explores how companion plugins can integrate additional Bridge modules without patching core. It is not an installed-plugin registry or a shipped third-party settings UI.
 
 ---
 
@@ -26,12 +26,14 @@ This spec defines how companion plugins will register additional Bridge modules 
 $modules = apply_filters( 'storefuse_bridge_modules', $modules );
 ```
 
-**Semantics:**
+**Runtime behavior currently present:**
 
 - Runs once during `StoreFuse_Bridge::load_modules()` before routes register.
 - Companion plugins append **instances** of classes extending `StoreFuse_Bridge_Module`.
-- Core modules are registered first; companions load after unless priority dictates otherwise.
-- Duplicate `$id` values: **companion loses** - core ID wins; companion should log an admin notice.
+- The loader registers routes for each supplied instance that is a `StoreFuse_Bridge_Module` and whose `is_enabled()` method returns true.
+- The base `is_enabled()` implementation returns true when the corresponding setting is absent. Do not assume a companion module is disabled by default or can be toggled in wp-admin.
+
+The current filter does not provide plugin discovery, duplicate-ID protection, a companion-module settings registration UI, or module controls on the existing Advanced page.
 
 ---
 
@@ -41,8 +43,8 @@ $modules = apply_filters( 'storefuse_bridge_modules', $modules );
 |-------------------|-------------|
 | `protected string $id` | Unique snake-case id (e.g. `loyalty`) |
 | `register_routes()` | Register only when `is_enabled()` is true |
-| `is_enabled()` | Reads `module_{id}_enabled` from settings; default **false** for companion modules unless admin enables |
-| Settings key | `storefuse_bridge_settings['module_{id}_enabled']` |
+| `is_enabled()` | The base implementation checks `module_{id}_enabled` and currently defaults to **true** when no value exists. A future proposal may introduce explicit opt-in for companion modules. |
+| Settings key | The base method reads `storefuse_bridge_settings['module_{id}_enabled']`; the current admin sanitizer/UI only recognizes the core toggleable module IDs. |
 
 Companion modules **must not** replace core `$id` values: `products`, `cart`, `checkout`, `auth`, etc.
 
@@ -84,8 +86,8 @@ New core commerce routes remain in core modules until promoted from companion ex
 
 ## Implementation gate
 
-Do **not** implement this filter in production Bridge until:
+Before describing future discovery or settings UI as shipped:
 
 1. [extensions.md](extensions.md) matches shipped hook signatures.
 2. This document is reviewed against `class-plugin.php` module loader.
-3. Migration path for sites using only filters (no modules) is documented.
+3. The proposed behavior is checked against the current module loader, sanitization, and admin capabilities.

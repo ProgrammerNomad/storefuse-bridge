@@ -6,7 +6,7 @@ Headless WooCommerce API for **Next.js**, **Flutter**, and other clients - one n
 
 | Document | Purpose |
 |----------|---------|
-| [admin-guide.md](admin-guide.md) | **wp-admin** - settings pages and API field registry |
+| [admin-guide.md](admin-guide.md) | **wp-admin** index → [admin/current/](admin/current/) (today) + [admin/refactor-v2/](admin/refactor-v2/) (planned) |
 | [verified-routes.md](verified-routes.md) | **Source of truth** - routes, auth tiers, session test checklist |
 | [api-reference.md](api-reference.md) | Payload shapes and endpoint details |
 | [architecture.md](architecture.md) | Plugin internals, caching, modules |
@@ -40,4 +40,4 @@ Headless WooCommerce API for **Next.js**, **Flutter**, and other clients - one n
 | Session | WC cookies | Required (primary) | Required | 1.0.0+ |
 | Cart token | `X-StoreFuse-Cart-Token` | Response header; signed restore **experimental** until [cart-token-restore.md](cart-token-restore.md) passes | Same | 1.0.1+ code; support TBD |
 
-Related: [storefuse-flutter](https://github.com/ProgrammerNomad/storefuse-flutter) planning docs (no shippable app in this phase).
+Flutter client guidance: [mobile-flutter.md](clients/mobile-flutter.md). The client application is maintained in the companion Flutter project.

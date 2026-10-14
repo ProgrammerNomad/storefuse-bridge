@@ -85,13 +85,13 @@ The reference Flutter app reads **`GET /settings` → `data.app.ui`** (schema **
 | Mobile screen | WordPress admin | API / notes |
 |---------------|-----------------|-------------|
 | **Branding / splash** | StoreFuse → General (`app_primary_color`, support URL) | `settings.app.primary_color`, `settings.site` (name, logo) |
-| **Bottom tabs** | StoreFuse → Advanced (module toggles) | `GET /status` → `modules` (hide Shop, Search, Cart, Account) |
-| **Drawer links** | StoreFuse → Navigation (assign `storefuse-header` menu) | `settings.navigation.main` |
+| **Bottom tabs** | StoreFuse → **Mobile app** → Active tabs & order (`app_ui_nav_tabs`) | `app.ui.navigation.tabs`; disable routes via **Advanced** module toggles when a tab’s API is off |
+| **Drawer / header links** | StoreFuse → Navigation (optional; not used by default Flutter bottom nav) | `settings.navigation.main` |
 | **Announcement bar** | General or Homepage content | `settings.header` + `GET /homepage` → `announcement_bar` |
 | **Home** | Homepage (hero, categories, product rows, promo) + **Mobile app** (section order / hide) | `GET /homepage` + `app.ui.home.section_order` / `hidden` |
 | **Categories list** | WooCommerce categories | Products API; list layout still app default |
 | **Category products** | **Mobile app** → catalog layout / columns | `app.ui.catalog` + `screens.category` |
-| **Shop** | **Mobile app** (layout, title, product card toggles) | `app.ui.screens.shop` |
+| **Shop** | **Mobile app** (layout, columns, shop title; catalog **stock badge** only in admin) | `app.ui.catalog`, `app.ui.screens.shop` |
 | **Search** | **Mobile app** (optional search layout override) | `app.ui.screens.search` |
 | **Product detail** | **Mobile app** (SKU, sticky ATC, related count) | Product JSON + `app.ui.screens.product`; related from `related_products` on single product |
 | **Cart** | **Mobile app** (coupon, free-shipping bar, empty CTA) | Cart API + `settings.store.free_shipping_threshold` + `app.ui.screens.cart` |
@@ -151,8 +151,8 @@ Use this when explaining what store owners can change **without** shipping a new
 | App screen | WordPress admin (StoreFuse) | API the app reads |
 |------------|----------------------------|-------------------|
 | **Splash / theme** | **General** - app primary colour, support URL; WP **Customizer** - site name, logo | `GET /settings` → `app.primary_color`, `site.*`, `app.support_url`, legal URLs |
-| **Bottom tabs** | **Advanced** - module toggles (hide Shop, Cart, etc.) | `GET /status` → `modules` |
-| **Drawer / header links** | **Navigation** - `storefuse-header` menu; **General** - announcement bar | `GET /settings` → `navigation.main`, `header.*` |
+| **Bottom tabs** | **Mobile app** - Active tabs & order (`app_ui_nav_tabs`); **Advanced** - disable modules when a tab’s API must be off | `app.ui.navigation.tabs`; `GET /status` → `modules` |
+| **Drawer / header links** | **Navigation** - optional `storefuse-header` menu; **General** - announcement bar | `GET /settings` → `navigation.main`, `header.*` |
 | **Home** | **Homepage** - hero, categories, product rows, promo; **Mobile app** - section order / hide sections | `GET /homepage` (ordered/filtered); layout hints also in `app.ui.screens.home` |
 | **Shop (`/products`)** | **Mobile app** - catalog layout, columns, stock badge, shop title | `GET /settings` → `app.ui.catalog`, `app.ui.screens.shop` |
 | **Search** | **Mobile app** - optional search layout override | `app.ui.screens.search` (falls back to catalog) |
