@@ -65,13 +65,17 @@ class StoreFuse_Bridge_Admin {
 
     public function register_menus(): void {
         $cap = self::settings_capability();
+        // WordPress recolors a base64 SVG for the user's admin color scheme.
+        $menu_icon = 'data:image/svg+xml;base64,' . base64_encode(
+            file_get_contents( STOREFUSE_BRIDGE_PATH . 'assets/storefuse-admin-mark.svg' )
+        );
         add_menu_page(
             __( 'StoreFuse Bridge', 'storefuse-bridge' ),
             __( 'StoreFuse', 'storefuse-bridge' ),
             $cap,
             'storefuse-bridge',
             [ $this, 'page_dashboard' ],
-            'dashicons-rest-api',
+            $menu_icon,
             56
         );
 

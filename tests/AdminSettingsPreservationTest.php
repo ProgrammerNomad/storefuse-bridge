@@ -203,6 +203,11 @@ final class AdminSettingsPreservationTest extends TestCase
 
             ( new StoreFuse_Bridge_Admin() )->register_menus();
 
+            self::assertSame(
+                'data:image/svg+xml;base64,' . base64_encode( file_get_contents( STOREFUSE_BRIDGE_PATH . 'assets/storefuse-admin-mark.svg' ) ),
+                $GLOBALS['_sfb_menus']['top'][0][5] ?? null
+            );
+
             $registered = $GLOBALS['_sfb_menus']['sub'] ?? [];
             self::assertCount( count( $all_slugs ), $registered );
             $parent_by_slug = [];
@@ -218,4 +223,5 @@ final class AdminSettingsPreservationTest extends TestCase
             }
         }
     }
+
 }

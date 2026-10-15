@@ -14,6 +14,14 @@ if ( ! defined( 'STOREFUSE_BRIDGE_BASENAME' ) ) {
     define( 'STOREFUSE_BRIDGE_BASENAME', 'storefuse-bridge/storefuse-bridge.php' );
 }
 
+if ( ! defined( 'STOREFUSE_BRIDGE_URL' ) ) {
+    define( 'STOREFUSE_BRIDGE_URL', 'https://example.test/wp-content/plugins/storefuse-bridge/' );
+}
+
+if ( ! defined( 'STOREFUSE_BRIDGE_PATH' ) ) {
+    define( 'STOREFUSE_BRIDGE_PATH', dirname( __DIR__ ) . '/storefuse-bridge/' );
+}
+
 if ( ! defined( 'STOREFUSE_BRIDGE_MIN_WC' ) ) {
     define( 'STOREFUSE_BRIDGE_MIN_WC', '7.0' );
 }

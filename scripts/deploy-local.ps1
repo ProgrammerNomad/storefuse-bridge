@@ -129,7 +129,9 @@ define( 'STOREFUSE_BRIDGE_BUILD_ID', '$revision' );
 define( 'STOREFUSE_BRIDGE_BUILD_TIME', '$builtAt' );
 
 "@
-Set-Content -LiteralPath (Join-Path $destination 'build-info.php') -Value $buildInfo -Encoding UTF8
+$buildInfoPath = Join-Path $destination 'build-info.php'
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+[System.IO.File]::WriteAllText($buildInfoPath, $buildInfo, $utf8NoBom)
 
 $mismatches = @()
 foreach ($file in Get-ChildItem -LiteralPath $source -Recurse -File) {
